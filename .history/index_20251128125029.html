@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Flashcards</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for parsing Excel files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6; /* Slate 100 */
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 3D Flip Container */
+        .perspective-container {
+            perspective: 1000px;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Flip Logic (Vertical: RotateX) */
+        .card-container.flipped .card-inner {
+            transform: rotateX(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1.5rem;
+            background: white;
+            padding: 2rem;
+            overflow-y: auto; /* Allow scrolling if content is huge */
+        }
+
+        /* The Back Face (rotated 180deg to match the flip) */
+        .card-back {
+            transform: rotateX(180deg);
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .card-front {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+        }
+
+        /* Hide scrollbar for cleaner look but keep functionality */
+        .card-face::-webkit-scrollbar {
+            width: 8px;
+        }
+        .card-face::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .card-face::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+
+        /* Input Zone Styling */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        /* Progress Bar Transition */
+        .progress-fill {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col items-center justify-center text-slate-800 p-4">
+
+    <!-- SETUP SCREEN (File Upload) -->
+    <div id="setup-screen" class="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl text-center">
+        <div class="mb-6">
+            <i class="fa-solid fa-layer-group text-5xl text-blue-500 mb-4"></i>
+            <h1 class="text-3xl font-bold mb-2">Flashcard Import</h1>
+            <p class="text-slate-500">Upload your Excel (.xlsx) file to begin.</p>
+        </div>
+        
+        <label class="drop-zone w-full h-40 flex flex-col items-center justify-center rounded-2xl cursor-pointer mb-6">
+            <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+            <span class="text-slate-500 font-medium">Click to upload or drag file here</span>
+            <input type="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden" />
+        </label>
+
+        <div class="text-xs text-left text-slate-400 bg-slate-50 p-4 rounded-xl">
+            <p class="font-bold mb-1">Format Requirement:</p>
+            <ul class="list-disc list-inside">
+                <li>Row 1: Headers (Language Names)</li>
+                <li>Column 1: Front of Card</li>
+                <li>Columns 2+: Back of Card</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCREEN (Hidden by default) -->
+    <div id="app-screen" class="hidden w-full max-w-2xl flex flex-col h-[85vh]">
+        
+        <!-- Header / Progress -->
+        <div class="flex items-center justify-between mb-4 px-2">
+            <button onclick="resetApp()" class="text-slate-400 hover:text-red-500 transition">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Exit
+            </button>
+            <div class="text-slate-500 font-mono text-sm">
+                <span id="current-count">1</span> / <span id="total-count">0</span>
+            </div>
+        </div>
+
+        <div class="w-full h-2 bg-slate-200 rounded-full mb-6 overflow-hidden">
+            <div id="progress-bar" class="progress-fill h-full bg-blue-500 w-0 rounded-full"></div>
+        </div>
+
+        <!-- The Card -->
+        <div class="flex-grow perspective-container w-full relative mb-8">
+            <div id="card-container" class="card-container cursor-pointer w-full h-full" onclick="flipCard()">
+                <div class="card-inner">
+                    
+                    <!-- FRONT -->
+                    <div class="card-face card-front">
+                        <div class="text-center">
+                            <h2 id="card-front-text" class="text-6xl md:text-7xl font-bold text-slate-800 tracking-tight leading-tight">
+                                <!-- Front Content -->
+                            </h2>
+                            <p class="mt-4 text-slate-400 text-sm uppercase tracking-widest font-semibold">Front</p>
+                        </div>
+                    </div>
+
+                    <!-- BACK -->
+                    <div class="card-face card-back">
+                        <div id="card-back-content" class="w-full max-w-md space-y-4 text-center">
+                            <!-- Back Content Dynamic -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center justify-center gap-6 pb-4">
+            <button onclick="prevCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                <i class="fa-solid fa-arrow-left text-xl"></i>
+            </button>
+            
+            <button onclick="flipCard()" class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">
+                Flip Card
+            </button>
+
+            <button onclick="nextCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                <i class="fa-solid fa-arrow-right text-xl"></i>
+            </button>
+        </div>
+        
+        <p class="text-center text-slate-400 text-xs mt-2">Space to Flip &bull; Arrow Keys to Navigate</p>
+
+    </div>
+
+    <script>
+        // State
+        let cards = [];
+        let headers = [];
+        let currentIndex = 0;
+        let isFlipped = false;
+
+        // Elements
+        const setupScreen = document.getElementById('setup-screen');
+        const appScreen = document.getElementById('app-screen');
+        const fileInput = document.getElementById('file-input');
+        const cardContainer = document.getElementById('card-container');
+        const frontText = document.getElementById('card-front-text');
+        const backContent = document.getElementById('card-back-content');
+        const currentCountEl = document.getElementById('current-count');
+        const totalCountEl = document.getElementById('total-count');
+        const progressBar = document.getElementById('progress-bar');
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFile);
+        
+        document.addEventListener('keydown', (e) => {
+            if (setupScreen.classList.contains('hidden')) {
+                if (e.code === 'Space') {
+                    e.preventDefault(); // Prevent scrolling
+                    flipCard();
+                } else if (e.code === 'ArrowRight') {
+                    nextCard();
+                } else if (e.code === 'ArrowLeft') {
+                    prevCard();
+                } else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+                    flipCard();
+                }
+            }
+        });
+
+        // 1. Handle File Upload
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // Assuming first sheet
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Convert to array of arrays
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                processData(rawData);
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 2. Process Data
+        function processData(rows) {
+            if (rows.length < 2) {
+                alert("File is empty or has no data rows.");
+                return;
+            }
+
+            // Extract Headers (Row 0)
+            headers = rows[0]; 
+
+            // Extract Data (Rows 1+)
+            // Filter out empty rows where the first column is null/undefined
+            cards = rows.slice(1).filter(row => row[0]).map(row => {
+                return {
+                    front: row[0],
+                    // Back is an array of objects: { label: "Pinyin", value: "ni hao" }
+                    back: row.slice(1).map((val, index) => ({
+                        label: headers[index + 1] || `Col ${index + 2}`, // Use header or fallback
+                        value: val || "-"
+                    }))
+                };
+            });
+
+            if (cards.length === 0) {
+                alert("No valid cards found.");
+                return;
+            }
+
+            // Initialize UI
+            currentIndex = 0;
+            isFlipped = false;
+            
+            setupScreen.classList.add('hidden');
+            appScreen.classList.remove('hidden');
+            
+            renderCard();
+        }
+
+        // 3. Render Card
+        function renderCard() {
+            const card = cards[currentIndex];
+            
+            // Reset Flip State visually
+            cardContainer.classList.remove('flipped');
+            isFlipped = false;
+
+            // Wait a tiny bit for the flip reset to register before changing content if needed, 
+            // but for instant feedback we usually change immediately.
+            
+            // Set Front
+            frontText.textContent = card.front;
+
+            // Set Back (Loop through columns)
+            backContent.innerHTML = '';
+            
+            card.back.forEach(item => {
+                // Skip if value is empty/null to keep it clean
+                if(!item.value || item.value === '-') return;
+
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex flex-col border-b border-slate-100 pb-2 last:border-0";
+                
+                const labelSpan = document.createElement('span');
+                labelSpan.className = "text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1";
+                labelSpan.textContent = item.label;
+
+                const valueSpan = document.createElement('span');
+                // Check if text looks like a sentence or just a word for sizing
+                const isLong = item.value.toString().length > 20;
+                valueSpan.className = isLong ? "text-lg text-slate-700 leading-snug" : "text-2xl text-slate-800 font-medium";
+                valueSpan.textContent = item.value;
+
+                rowDiv.appendChild(labelSpan);
+                rowDiv.appendChild(valueSpan);
+                backContent.appendChild(rowDiv);
+            });
+
+            // Update Progress
+            updateProgress();
+        }
+
+        // 4. Interactions
+        function flipCard() {
+            isFlipped = !isFlipped;
+            cardContainer.classList.toggle('flipped');
+        }
+
+        function nextCard() {
+            if (currentIndex < cards.length - 1) {
+                currentIndex++;
+                renderCard();
+            } else {
+                // Optional: Loop back or shake animation
+                // For now, just a simple shake effect
+                cardContainer.parentElement.classList.add('animate-pulse');
+                setTimeout(() => cardContainer.parentElement.classList.remove('animate-pulse'), 200);
+            }
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderCard();
+            }
+        }
+
+        function updateProgress() {
+            currentCountEl.textContent = currentIndex + 1;
+            totalCountEl.textContent = cards.length;
+            
+            const percentage = ((currentIndex + 1) / cards.length) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+        function resetApp() {
+            appScreen.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+            fileInput.value = ''; // Clear input
+            cards = [];
+            headers = [];
+        }
+
+    </script>
+</body>
+</html>

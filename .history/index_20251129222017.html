@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Flashcards</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for parsing Excel files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6; /* Slate 100 */
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 3D Flip Container */
+        .perspective-container {
+            perspective: 1000px;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Flip Logic (Vertical: RotateX) */
+        .card-container.flipped .card-inner {
+            transform: rotateX(180deg);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden; /* Safari */
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1.5rem;
+            background: white;
+            padding: 2rem;
+            overflow-y: auto; /* Allow scrolling if content is huge */
+        }
+
+        /* The Back Face (rotated 180deg to match the flip) */
+        .card-back {
+            transform: rotateX(180deg);
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .card-front {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+        }
+
+        /* Hide scrollbar for cleaner look but keep functionality */
+        .card-face::-webkit-scrollbar {
+            width: 8px;
+        }
+        .card-face::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .card-face::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+
+        /* Input Zone Styling */
+        .drop-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+
+        /* Progress Bar Transition */
+        .progress-fill {
+            transition: width 0.3s ease;
+        }
+
+        /* Mode Button Active State */
+        .mode-btn.active {
+            background-color: #1e293b; /* Slate 800 */
+            color: white;
+            border-color: #1e293b;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col items-center justify-center text-slate-800 p-4">
+
+    <!-- SETUP SCREEN (File Upload) -->
+    <div id="setup-screen" class="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl text-center">
+        <div class="mb-6">
+            <i class="fa-solid fa-layer-group text-5xl text-blue-500 mb-4"></i>
+            <h1 class="text-3xl font-bold mb-2">Flashcard Import</h1>
+            <p class="text-slate-500">Upload your Excel (.xlsx) file to begin.</p>
+        </div>
+        
+        <label class="drop-zone w-full h-40 flex flex-col items-center justify-center rounded-2xl cursor-pointer mb-6">
+            <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+            <span class="text-slate-500 font-medium">Click to upload or drag file here</span>
+            <input type="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden" />
+        </label>
+
+        <div class="text-xs text-left text-slate-400 bg-slate-50 p-4 rounded-xl">
+            <p class="font-bold mb-1">Format Requirement:</p>
+            <ul class="list-disc list-inside">
+                <li>Col 1: Chinese</li>
+                <li>Col 2: Pinyin</li>
+                <li>Col 3+: Meaning(s)</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCREEN (Hidden by default) -->
+    <div id="app-screen" class="hidden w-full max-w-2xl flex flex-col h-[90vh]">
+        
+        <!-- Header / Progress -->
+        <div class="flex items-center justify-between mb-2 px-2">
+            <button onclick="resetApp()" class="text-slate-400 hover:text-red-500 transition text-sm">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Exit
+            </button>
+            <div class="text-slate-500 font-mono text-sm">
+                <span id="current-count">1</span> / <span id="total-count">0</span>
+            </div>
+        </div>
+
+        <div class="w-full h-2 bg-slate-200 rounded-full mb-4 overflow-hidden">
+            <div id="progress-bar" class="progress-fill h-full bg-blue-500 w-0 rounded-full"></div>
+        </div>
+
+        <!-- Mode Selection -->
+        <div id="mode-controls" class="flex flex-wrap gap-2 justify-center mb-4">
+            <button onclick="setMode('chinese')" id="btn-mode-chinese" class="mode-btn active px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                Chinese - Pinyin & Meaning
+            </button>
+            <button onclick="setMode('pinyin')" id="btn-mode-pinyin" class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                Pinyin - Chinese & Meaning
+            </button>
+            <button onclick="setMode('meaning')" id="btn-mode-meaning" class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                Meaning - Chinese & Pinyin
+            </button>
+        </div>
+
+        <!-- The Card -->
+        <div class="flex-grow perspective-container w-full relative mb-6">
+            <div id="card-container" class="card-container cursor-pointer w-full h-full" onclick="flipCard()">
+                <div class="card-inner">
+                    
+                    <!-- FRONT -->
+                    <div class="card-face card-front">
+                        <div id="card-front-content" class="text-center w-full">
+                            <!-- Front Content Dynamic -->
+                        </div>
+                        <p class="absolute bottom-6 text-slate-300 text-xs uppercase tracking-widest font-semibold">Front</p>
+                    </div>
+
+                    <!-- BACK -->
+                    <div class="card-face card-back">
+                        <div id="card-back-content" class="w-full max-w-md space-y-4 text-center">
+                            <!-- Back Content Dynamic -->
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center justify-center gap-6 pb-2">
+            <button onclick="prevCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                <i class="fa-solid fa-arrow-left text-xl"></i>
+            </button>
+            
+            <button onclick="flipCard()" class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">
+                Flip
+            </button>
+
+            <button onclick="nextCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                <i class="fa-solid fa-arrow-right text-xl"></i>
+            </button>
+        </div>
+        
+    </div>
+
+    <script>
+        // State
+        let rawCards = []; // Store parsed data structure
+        let headers = [];
+        let currentIndex = 0;
+        let isFlipped = false;
+        let currentMode = 'chinese'; // 'chinese', 'pinyin', 'meaning'
+        let hasMeanings = false;
+
+        // Elements
+        const setupScreen = document.getElementById('setup-screen');
+        const appScreen = document.getElementById('app-screen');
+        const fileInput = document.getElementById('file-input');
+        const cardContainer = document.getElementById('card-container');
+        const frontContent = document.getElementById('card-front-content');
+        const backContent = document.getElementById('card-back-content');
+        const currentCountEl = document.getElementById('current-count');
+        const totalCountEl = document.getElementById('total-count');
+        const progressBar = document.getElementById('progress-bar');
+        
+        // Mode Buttons
+        const btnChinese = document.getElementById('btn-mode-chinese');
+        const btnPinyin = document.getElementById('btn-mode-pinyin');
+        const btnMeaning = document.getElementById('btn-mode-meaning');
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFile);
+        
+        document.addEventListener('keydown', (e) => {
+            if (setupScreen.classList.contains('hidden')) {
+                if (e.code === 'Space') {
+                    e.preventDefault(); // Prevent scrolling
+                    flipCard();
+                } else if (e.code === 'ArrowRight') {
+                    nextCard();
+                } else if (e.code === 'ArrowLeft') {
+                    prevCard();
+                } else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+                    flipCard();
+                }
+            }
+        });
+
+        // 1. Handle File Upload
+        function handleFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                processData(rawData);
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 2. Process Data
+        function processData(rows) {
+            if (rows.length < 2) {
+                alert("File is empty or has no data rows.");
+                return;
+            }
+
+            headers = rows[0]; 
+
+            // Map rows to structured object
+            rawCards = rows.slice(1).filter(row => row[0]).map(row => {
+                // Ensure we have at least empty strings for Pinyin if missing
+                const chineseVal = row[0];
+                const pinyinVal = row[1] || "-";
+                
+                // Collect all meaning columns (Col 3 onwards)
+                const meaningCols = row.slice(2).map((val, idx) => ({
+                    label: headers[idx + 2] || `Meaning ${idx + 1}`,
+                    value: val || "-"
+                }));
+
+                return {
+                    chinese: { label: headers[0] || "Chinese", value: chineseVal },
+                    pinyin: { label: headers[1] || "Pinyin", value: pinyinVal },
+                    meanings: meaningCols
+                };
+            });
+
+            if (rawCards.length === 0) {
+                alert("No valid cards found.");
+                return;
+            }
+
+            // Detect if we have meaning columns
+            // Check the first card to see if meanings exist
+            hasMeanings = rawCards[0].meanings.length > 0;
+
+            updateModeButtons();
+            
+            // Initialize UI
+            currentIndex = 0;
+            isFlipped = false;
+            currentMode = 'chinese';
+            updateModeActiveState();
+
+            setupScreen.classList.add('hidden');
+            appScreen.classList.remove('hidden');
+            
+            renderCard();
+        }
+
+        // 3. Update Mode Buttons (Labels & Visibility)
+        function updateModeButtons() {
+            if (!hasMeanings) {
+                // No meanings found
+                btnChinese.textContent = "Chinese - Pinyin";
+                btnPinyin.textContent = "Pinyin - Chinese";
+                btnMeaning.style.display = 'none'; // Hide Meaning mode
+            } else {
+                // Meanings exist
+                btnChinese.textContent = "Chinese - Pinyin & Meaning";
+                btnPinyin.textContent = "Pinyin - Chinese & Meaning";
+                btnMeaning.textContent = "Meaning - Chinese & Pinyin";
+                btnMeaning.style.display = 'block';
+            }
+        }
+
+        // 4. Set Mode
+        function setMode(mode) {
+            if (currentMode === mode) return;
+            currentMode = mode;
+            updateModeActiveState();
+            renderCard();
+        }
+
+        function updateModeActiveState() {
+            [btnChinese, btnPinyin, btnMeaning].forEach(btn => btn.classList.remove('active'));
+            if (currentMode === 'chinese') btnChinese.classList.add('active');
+            if (currentMode === 'pinyin') btnPinyin.classList.add('active');
+            if (currentMode === 'meaning') btnMeaning.classList.add('active');
+        }
+
+        // 5. Render Card based on Mode
+        function renderCard() {
+            const cardData = rawCards[currentIndex];
+            
+            // Reset Flip
+            cardContainer.classList.remove('flipped');
+            isFlipped = false;
+
+            let frontHtml = '';
+            let backItems = [];
+
+            // --- LOGIC PER MODE ---
+
+            if (currentMode === 'chinese') {
+                // Front: Chinese
+                frontHtml = `<h2 class="text-6xl md:text-7xl font-bold text-slate-800 leading-tight">${cardData.chinese.value}</h2>`;
+                
+                // Back: Pinyin + Meanings
+                backItems.push(cardData.pinyin);
+                if(hasMeanings) backItems = backItems.concat(cardData.meanings);
+
+            } else if (currentMode === 'pinyin') {
+                // Front: Pinyin
+                frontHtml = `<h2 class="text-5xl md:text-6xl font-bold text-slate-800 leading-tight">${cardData.pinyin.value}</h2>`;
+                
+                // Back: Chinese + Meanings
+                backItems.push(cardData.chinese);
+                if(hasMeanings) backItems = backItems.concat(cardData.meanings);
+
+            } else if (currentMode === 'meaning') {
+                // Front: Meanings (All of them)
+                // If multiple meanings, stack them
+                const meaningsHtml = cardData.meanings.map(m => `
+                    <div class="mb-4 last:mb-0">
+                        <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">${m.label}</div>
+                        <div class="text-4xl font-bold text-slate-800">${m.value}</div>
+                    </div>
+                `).join('');
+                frontHtml = `<div class="flex flex-col">${meaningsHtml}</div>`;
+
+                // Back: Chinese + Pinyin
+                backItems.push(cardData.chinese);
+                backItems.push(cardData.pinyin);
+            }
+
+            // Render Front
+            frontContent.innerHTML = frontHtml;
+
+            // Render Back
+            backContent.innerHTML = '';
+            backItems.forEach(item => {
+                if(!item.value || item.value === '-') return;
+
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex flex-col border-b border-slate-100 pb-3 last:border-0";
+                
+                const labelSpan = document.createElement('span');
+                labelSpan.className = "text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1";
+                labelSpan.textContent = item.label;
+
+                const valueSpan = document.createElement('span');
+                const isLong = item.value.toString().length > 20;
+                
+                // 1.5x Size logic: 
+                // Original was ~text-lg/2xl. 1.5x is approx text-3xl/5xl.
+                valueSpan.className = isLong ? "text-3xl text-slate-700 leading-snug font-bold" : "text-5xl text-slate-800 font-bold";
+                valueSpan.textContent = item.value;
+
+                rowDiv.appendChild(labelSpan);
+                rowDiv.appendChild(valueSpan);
+                backContent.appendChild(rowDiv);
+            });
+
+            updateProgress();
+        }
+
+        // 6. Navigation Controls
+        function flipCard() {
+            isFlipped = !isFlipped;
+            cardContainer.classList.toggle('flipped');
+        }
+
+        function nextCard() {
+            if (currentIndex < rawCards.length - 1) {
+                currentIndex++;
+                renderCard();
+            } else {
+                cardContainer.parentElement.classList.add('animate-pulse');
+                setTimeout(() => cardContainer.parentElement.classList.remove('animate-pulse'), 200);
+            }
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderCard();
+            }
+        }
+
+        function updateProgress() {
+            currentCountEl.textContent = currentIndex + 1;
+            totalCountEl.textContent = rawCards.length;
+            const percentage = ((currentIndex + 1) / rawCards.length) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+        function resetApp() {
+            appScreen.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+            fileInput.value = ''; 
+            rawCards = [];
+            headers = [];
+        }
+    </script>
+</body>
+</html>
