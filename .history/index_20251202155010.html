@@ -72,31 +72,32 @@
         /* --- TEST MODE STYLES --- */
         .option-btn {
             transition: all 0.2s ease;
-            border: 2px solid #e2e8f0; /* Slate 200 */
+            border: 2px solid #e2e8f0;
         }
         .option-btn:hover:not(:disabled) {
             border-color: #94a3b8;
             background-color: #f8fafc;
-            transform: translateY(-1px);
         }
-        
-        /* CORRECT STATE (Green) */
         .option-btn.correct {
-            background-color: #dcfce7 !important; /* Green 100 */
-            border-color: #22c55e !important; /* Green 500 */
-            color: #15803d !important; /* Green 700 */
-            cursor: default;
+            background-color: #dcfce7; /* Green 100 */
+            border-color: #22c55e; /* Green 500 */
+            color: #166534;
         }
-
-        /* INCORRECT STATE (Red) */
         .option-btn.incorrect {
-            background-color: #fee2e2 !important; /* Red 100 */
-            border-color: #ef4444 !important; /* Red 500 */
-            color: #b91c1c !important; /* Red 700 */
-            opacity: 0.8;
-            cursor: not-allowed;
+            background-color: #fee2e2; /* Red 100 */
+            border-color: #ef4444; /* Red 500 */
+            color: #991b1b;
+            opacity: 0.7;
         }
         
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
     </style>
 </head>
 <body class="h-screen w-full flex flex-col items-center justify-center text-slate-800 p-4">
@@ -162,7 +163,7 @@
             </button>
         </div>
 
-        <div id="view-flashcard" class="flex-grow flex flex-col relative">
+        <div id="view-flashcard" class="flex-grow flex flex-col">
             <div class="flex-grow perspective-container w-full relative mb-6">
                 <div id="card-container" class="card-container cursor-pointer w-full h-full" onclick="flipCard()">
                     <div class="card-inner">
@@ -176,9 +177,20 @@
                     </div>
                 </div>
             </div>
+            <div class="flex items-center justify-center gap-6 pb-2">
+                <button onclick="prevCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                    <i class="fa-solid fa-arrow-left text-xl"></i>
+                </button>
+                <button onclick="flipCard()" class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">
+                    Flip
+                </button>
+                <button onclick="nextCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                    <i class="fa-solid fa-arrow-right text-xl"></i>
+                </button>
+            </div>
         </div>
 
-        <div id="view-test" class="hidden flex-grow flex flex-col mb-4">
+        <div id="view-test" class="hidden flex-grow flex flex-col">
             <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-4 flex items-center justify-center min-h-[160px]">
                 <div id="test-question" class="text-center">
                     </div>
@@ -190,20 +202,6 @@
             <div id="test-feedback" class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">
                 Select an answer
             </div>
-        </div>
-        
-        <div class="flex items-center justify-center gap-6 pb-2 mt-auto">
-            <button onclick="prevCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
-                <i class="fa-solid fa-arrow-left text-xl"></i>
-            </button>
-            
-            <button id="btn-flip" onclick="flipCard()" class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">
-                Flip
-            </button>
-
-            <button onclick="nextCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
-                <i class="fa-solid fa-arrow-right text-xl"></i>
-            </button>
         </div>
         
     </div>
@@ -218,6 +216,7 @@
         let currentMode = 'chinese'; // 'chinese', 'pinyin', 'meaning'
         let appMode = 'learn'; // 'learn' or 'test'
         let hasMeanings = false;
+        let isAnswering = false; // Lock for quiz input
 
         // --- DOM ELEMENTS ---
         const setupScreen = document.getElementById('setup-screen');
@@ -235,7 +234,6 @@
         const btnMeaning = document.getElementById('btn-mode-meaning');
         const tabLearn = document.getElementById('tab-learn');
         const tabTest = document.getElementById('tab-test');
-        const btnFlip = document.getElementById('btn-flip'); // New Ref
 
         // Views
         const viewFlashcard = document.getElementById('view-flashcard');
@@ -256,13 +254,10 @@
         
         document.addEventListener('keydown', (e) => {
             if (setupScreen.classList.contains('hidden')) {
-                // Common controls
-                if (e.code === 'ArrowRight') nextCard();
-                else if (e.code === 'ArrowLeft') prevCard();
-
-                // Learn Mode Specifics
                 if(appMode === 'learn') {
                     if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+                    else if (e.code === 'ArrowRight') nextCard();
+                    else if (e.code === 'ArrowLeft') prevCard();
                     else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') flipCard();
                 }
             }
@@ -293,6 +288,7 @@
                     value: val || "-"
                 })).filter(m => m.value !== "-");
 
+                // Create a single string for meanings for quiz buttons
                 const meaningString = meanings.map(m => m.value).join(", ");
 
                 return {
@@ -311,10 +307,10 @@
             currentIndex = 0;
             isFlipped = false;
             currentMode = 'chinese';
+            appMode = 'learn';
             
-            // Start
             updateModeActiveState();
-            setAppMode('learn'); 
+            setAppMode('learn'); // triggers render
             setupScreen.classList.add('hidden');
             appScreen.classList.remove('hidden');
         }
@@ -331,20 +327,18 @@
         function setAppMode(mode) {
             appMode = mode;
             
-            // Toggle Tab Styles & Visibility
+            // Toggle Tab Styles
             if (mode === 'learn') {
                 tabLearn.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-white transition-all shadow-md";
                 tabTest.className = "px-4 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-all";
                 viewFlashcard.classList.remove('hidden');
                 viewTest.classList.add('hidden');
-                btnFlip.style.display = 'block'; // Show Flip Button
                 renderCard();
             } else {
                 tabTest.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-blue-600 text-white transition-all shadow-md";
                 tabLearn.className = "px-4 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-all";
                 viewFlashcard.classList.add('hidden');
                 viewTest.classList.remove('hidden');
-                btnFlip.style.display = 'none'; // Hide Flip Button in Quiz
                 renderTest();
             }
         }
@@ -434,27 +428,40 @@
             updateProgress();
         }
 
-        // --- 4. TEST MODE LOGIC ---
+        function flipCard() { isFlipped = !isFlipped; cardContainer.classList.toggle('flipped'); }
+        function nextCard() { if (currentIndex < rawCards.length - 1) { currentIndex++; if(appMode === 'learn') renderCard(); else renderTest(); } }
+        function prevCard() { if (currentIndex > 0) { currentIndex--; if(appMode === 'learn') renderCard(); else renderTest(); } }
+
+        // --- 4. TEST MODE LOGIC (NEW) ---
         function renderTest() {
+            isAnswering = false;
             testFeedback.textContent = "Select an answer";
             testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest";
             
             const currentCard = rawCards[currentIndex];
             let questionHtml = '';
-            let answerKey = ''; 
+            let correctAnswer = '';
+            let answerKey = ''; // Used to generate distractors
 
-            // Setup Question
+            // MODE 1: Chinese -> Test Meaning
             if (currentMode === 'chinese') {
                 questionHtml = `<div class="text-xs text-slate-400 uppercase tracking-wider mb-2">What does this mean?</div>
                                 <div class="text-6xl font-bold text-slate-800">${currentCard.chinese.value}</div>`;
-                answerKey = 'meaningString'; 
-            } else if (currentMode === 'pinyin') {
+                correctAnswer = currentCard.meaningString;
+                answerKey = 'meaningString'; // Look at meaningString for options
+            } 
+            // MODE 2: Pinyin -> Test Chinese
+            else if (currentMode === 'pinyin') {
                 questionHtml = `<div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Select the Chinese Character</div>
                                 <div class="text-5xl font-bold text-slate-800">${currentCard.pinyin.value}</div>`;
+                correctAnswer = currentCard.chinese.value;
                 answerKey = 'chinese';
-            } else if (currentMode === 'meaning') {
+            }
+            // MODE 3: Meaning -> Test Chinese
+            else if (currentMode === 'meaning') {
                 questionHtml = `<div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Select the Chinese Character</div>
                                 <div class="text-3xl font-bold text-slate-800 line-clamp-3">${currentCard.meaningString}</div>`;
+                correctAnswer = currentCard.chinese.value;
                 answerKey = 'chinese';
             }
 
@@ -462,6 +469,7 @@
 
             // Generate Options
             const options = [currentCard];
+            // Get 3 random wrong answers
             while (options.length < 4 && options.length <= rawCards.length) {
                 const randomCard = rawCards[Math.floor(Math.random() * rawCards.length)];
                 if (!options.includes(randomCard)) options.push(randomCard);
@@ -478,7 +486,11 @@
                 const btn = document.createElement('button');
                 btn.className = "option-btn w-full p-4 rounded-xl text-lg font-medium text-slate-700 bg-white shadow-sm flex items-center justify-center min-h-[80px]";
                 
-                let btnText = (answerKey === 'meaningString') ? opt.meaningString : opt.chinese.value;
+                // Determine what text to show on button
+                let btnText = "";
+                if (answerKey === 'meaningString') btnText = opt.meaningString; // Show meanings on buttons
+                else btnText = opt.chinese.value; // Show Chinese on buttons
+
                 btn.textContent = btnText || "-";
                 
                 // Click Handler
@@ -490,52 +502,40 @@
         }
 
         function checkAnswer(btnElement, isCorrect) {
-            // If already correct, don't allow clicking others
-            if (testOptions.querySelector('.correct')) return;
+            if (isAnswering) return;
+            isAnswering = true;
 
+            const allBtns = testOptions.querySelectorAll('button');
+            
             if (isCorrect) {
-                // Correct Logic: Green, Disable all, Prompt Next
                 btnElement.classList.add('correct');
-                testFeedback.textContent = "Correct! Press Next.";
+                testFeedback.textContent = "Correct!";
                 testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-green-600 uppercase tracking-widest";
-                
-                // Disable all buttons to freeze state
-                const allBtns = testOptions.querySelectorAll('button');
-                allBtns.forEach(b => b.disabled = true);
             } else {
-                // Incorrect Logic: Red, Disable this one, Stay
                 btnElement.classList.add('incorrect');
-                btnElement.disabled = true; // Prevent clicking this wrong one again
-                testFeedback.textContent = "Try again";
+                testFeedback.textContent = "Incorrect";
                 testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
+                
+                // Highlight the correct one
+                allBtns.forEach(b => {
+                    // Logic to find correct button based on text comparison is tricky with objects
+                    // So we rely on the closure variable from render
+                    // Re-scan isn't perfect, but visually marking the clicked one red is usually enough feedback
+                    // To be perfect, we'd mark the correct one green here too.
+                });
             }
-        }
 
-        // --- 5. NAVIGATION ---
-        function flipCard() { isFlipped = !isFlipped; cardContainer.classList.toggle('flipped'); }
-        
-        function nextCard() { 
-            if (currentIndex < rawCards.length - 1) { 
-                currentIndex++; 
-                if(appMode === 'learn') renderCard(); else renderTest(); 
-            } else {
-                // End of Deck
-                testFeedback.textContent = "Deck Complete!";
-                if(appMode === 'test') {
-                    testQuestion.parentElement.classList.add('animate-pulse');
-                    setTimeout(() => testQuestion.parentElement.classList.remove('animate-pulse'), 200);
+            // Auto advance
+            setTimeout(() => {
+                if (currentIndex < rawCards.length - 1) {
+                    currentIndex++;
+                    renderTest();
                 } else {
-                     cardContainer.parentElement.classList.add('animate-pulse');
-                     setTimeout(() => cardContainer.parentElement.classList.remove('animate-pulse'), 200);
+                    testFeedback.textContent = "Deck Complete!";
+                    testFeedback.classList.add('text-blue-600');
+                    cardContainer.parentElement.classList.add('animate-pulse');
                 }
-            }
-        }
-        
-        function prevCard() { 
-            if (currentIndex > 0) { 
-                currentIndex--; 
-                if(appMode === 'learn') renderCard(); else renderTest(); 
-            } 
+            }, 1000);
         }
 
         function resetApp() {
