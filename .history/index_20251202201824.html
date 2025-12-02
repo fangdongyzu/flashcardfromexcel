@@ -628,9 +628,9 @@
             // Metric 2: (All Clicks - Question Length) / Question Length
             // Math: Total Clicks = CorrectClicks (which is length) + WrongClicks.
             // So (TotalClicks - Length) = WrongClicks.
-          
+            const ratioPct = Math.round((wrongClicks / totalQ) * 100);
             resMistakes.textContent = `${wrongClicks}`;
-          
+            resMistakesPct.textContent = `${ratioPct}% Ratio`;
         }
 
         // --- 6. NAVIGATION ---

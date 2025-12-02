@@ -293,6 +293,7 @@
         const resAccuracy = document.getElementById('res-accuracy');
         const resAccuracyPct = document.getElementById('res-accuracy-pct');
         const resMistakes = document.getElementById('res-mistakes');
+        const resMistakesPct = document.getElementById('res-mistakes-pct');
 
         // --- EVENT LISTENERS ---
         fileInput.addEventListener('change', handleFile);
@@ -628,9 +629,9 @@
             // Metric 2: (All Clicks - Question Length) / Question Length
             // Math: Total Clicks = CorrectClicks (which is length) + WrongClicks.
             // So (TotalClicks - Length) = WrongClicks.
-          
+            const ratioPct = Math.round((wrongClicks / totalQ) * 100);
             resMistakes.textContent = `${wrongClicks}`;
-          
+            resMistakesPct.textContent = `${ratioPct}% Ratio`;
         }
 
         // --- 6. NAVIGATION ---

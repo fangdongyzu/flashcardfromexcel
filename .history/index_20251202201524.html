@@ -210,8 +210,9 @@
                     <p id="res-accuracy-pct" class="text-xs font-bold text-green-600 mt-1">0%</p>
                 </div>
                 <div class="bg-red-50 p-4 rounded-xl border border-red-100">
-                    <p class="text-xs uppercase font-bold text-red-400 mb-1">Wrong Extra Clicks</p>
+                    <p class="text-xs uppercase font-bold text-red-400 mb-1">WrongExtra Clicks</p>
                     <p id="res-mistakes" class="text-2xl font-bold text-red-800">0</p>
+                    <p id="res-mistakes-pct" class="text-xs font-bold text-red-600 mt-1">0% Ratio</p>
                 </div>
             </div>
 
@@ -293,6 +294,7 @@
         const resAccuracy = document.getElementById('res-accuracy');
         const resAccuracyPct = document.getElementById('res-accuracy-pct');
         const resMistakes = document.getElementById('res-mistakes');
+        const resMistakesPct = document.getElementById('res-mistakes-pct');
 
         // --- EVENT LISTENERS ---
         fileInput.addEventListener('change', handleFile);
@@ -628,9 +630,9 @@
             // Metric 2: (All Clicks - Question Length) / Question Length
             // Math: Total Clicks = CorrectClicks (which is length) + WrongClicks.
             // So (TotalClicks - Length) = WrongClicks.
-          
+            const ratioPct = Math.round((wrongClicks / totalQ) * 100);
             resMistakes.textContent = `${wrongClicks}`;
-          
+            resMistakesPct.textContent = `${ratioPct}% Ratio`;
         }
 
         // --- 6. NAVIGATION ---
