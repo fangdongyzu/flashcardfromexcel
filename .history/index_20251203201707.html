@@ -528,7 +528,7 @@
                 rowDiv.className = "flex flex-col border-b border-slate-100 pb-3 last:border-0";
                 rowDiv.innerHTML = `
                     <span class="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1">${item.label}</span>
-                    <span class="text-7xl text-slate-800 font-bold">${item.value}</span>
+                    <span class="text-xl text-slate-800 font-bold">${item.value}</span>
                 `;
                 backContent.appendChild(rowDiv);
             });
@@ -577,7 +577,7 @@
             testOptions.innerHTML = '';
             options.forEach(opt => {
                 const btn = document.createElement('button');
-                btn.className = "option-btn w-full p-4 rounded-xl text-4xl font-medium text-slate-700 bg-white shadow-sm flex items-center justify-center min-h-[80px]";
+                btn.className = "option-btn w-full p-4 rounded-xl text-lg font-medium text-slate-700 bg-white shadow-sm flex items-center justify-center min-h-[80px]";
                 
                 let btnText = (answerKey === 'meaningString') ? opt.meaningString : opt.chinese.value;
                 btn.textContent = btnText || "-";
