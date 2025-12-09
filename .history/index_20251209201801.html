@@ -12,16 +12,15 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@400;700&display=swap');
 
-        /* Applies to all elements to improve touch response */
-        html {
-            touch-action: manipulation;
-        }
+        /* Applies to all elements */
+html {
+    touch-action: manipulation;
+}
 
         body {
             font-family: 'Inter', 'Noto Sans TC', sans-serif;
             background-color: #f3f4f6;
             -webkit-font-smoothing: antialiased;
-            overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
         }
 
         /* --- 3D Flip & Card Styles --- */
@@ -95,10 +94,21 @@
 
         /* Animations */
         @keyframes shuffleShake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px) rotate(-1deg); }
-            75% { transform: translateX(5px) rotate(1deg); }
-            100% { transform: translateX(0); }
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px) rotate(-1deg);
+            }
+
+            75% {
+                transform: translateX(5px) rotate(1deg);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
         }
 
         .shaking {
@@ -196,8 +206,7 @@
             <div class="flex items-center gap-4">
                 <div id="timer-display"
                     class="hidden text-slate-600 font-mono font-bold bg-white px-3 py-1 rounded-lg border border-slate-200">
-                    <i class="fa-regular fa-clock mr-2"></i><span id="time-val">00:00</span>
-                </div>
+                    <i class="fa-regular fa-clock mr-2"></i><span id="time-val">00:00</span></div>
                 <div class="flex items-center bg-white rounded-full p-1 border border-slate-200 shadow-sm">
                     <button onclick="setAppMode('learn')" id="tab-learn"
                         class="px-4 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-white transition-all shadow-md">Learn</button>
@@ -290,11 +299,11 @@
     </div>
 
     <script>
-        // --- 1. GITHUB CONFIGURATION ---
+        // --- 1. GITHUB CONFIGURATION (EDIT THIS) ---
         const GH_CONFIG = {
-            owner: 'fangdongyzu',
-            repo: 'flashcardfromexcel',
-            branch: 'main'
+            owner: 'fangdongyzu', // e.g. 'john-doe'
+            repo: 'flashcardfromexcel',  // e.g. 'flashcards'
+            branch: 'main'           // usually 'main' or 'master'
         };
 
         // --- GLOBAL VARIABLES ---
@@ -306,8 +315,7 @@
         let hasMeanings = false;
         let timerInterval, timeElapsed = 0;
         let correctFirstTryCount = 0, wrongClicks = 0, isFirstAttempt = true;
-        let currentGitHubFiles = [];
-        let currentFileId = null; 
+        let currentGitHubFiles = []; // To store file list of selected folder
 
         // --- DOM REFERENCES ---
         const setupScreen = document.getElementById('setup-screen');
@@ -359,7 +367,6 @@
         ghFolderSelect.addEventListener('change', handleGhFolderChange);
         ghFileSelect.addEventListener('change', () => btnGhLoad.disabled = false);
 
-        // Keyboard support
         document.addEventListener('keydown', (e) => {
             if (setupScreen.classList.contains('hidden')) {
                 if (e.code === 'ArrowRight') nextCard();
@@ -370,45 +377,6 @@
                 }
             }
         });
-
-        // --- SWIPE / TOUCH LOGIC (NEW) ---
-        let touchStartX = 0;
-        let touchEndX = 0;
-        const minSwipeDistance = 50; // Minimum pixels to count as swipe
-
-        appScreen.addEventListener('touchstart', e => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, {passive: true});
-
-        appScreen.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        }, {passive: true});
-
-        function handleSwipe() {
-            // Only allow swipe in Learn mode (avoid accidental skips in Test)
-            if (appMode !== 'learn') return;
-
-            const distance = touchEndX - touchStartX;
-            
-            // Check if distance is enough
-            if (Math.abs(distance) < minSwipeDistance) return;
-
-            if (distance < 0) {
-                // Swipe Left (Moving finger Right to Left) -> NEXT Card
-                nextCard();
-            } else {
-                // Swipe Right (Moving finger Left to Right) -> PREVIOUS Card
-                prevCard();
-            }
-        }
-
-        // --- PROGRESS SAVING ---
-        function saveProgress() {
-            if (currentFileId && appMode === 'learn') {
-                localStorage.setItem(currentFileId, currentIndex);
-            }
-        }
 
         // --- SETUP LOGIC ---
         function switchTab(tab) {
@@ -427,6 +395,7 @@
 
         // --- GITHUB API INTEGRATION ---
         async function initGitHub() {
+            // Check if config is still default
             if (GH_CONFIG.owner === 'YOUR_USERNAME') {
                 repoStatus.textContent = "Please configure your username in the code.";
                 repoStatus.classList.add('text-red-500');
@@ -434,12 +403,17 @@
             }
 
             try {
+                // Fetch Root content to find folders
                 const url = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error("Repo not found");
 
                 const data = await response.json();
+
+                // --- MODIFIED LINE IS HERE ---
+                // We filter for items that are directories AND the name is NOT '.HISTORY'
                 const folders = data.filter(item => item.type === 'dir' && item.name !== '.history');
+                // -----------------------------
 
                 if (folders.length === 0) {
                     ghFolderSelect.innerHTML = '<option disabled>No folders found</option>';
@@ -463,7 +437,6 @@
                 repoStatus.classList.add('text-red-500');
             }
         }
-
         async function handleGhFolderChange() {
             const folderPath = ghFolderSelect.value;
             ghFileSelect.innerHTML = '<option>Loading...</option>';
@@ -475,13 +448,16 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
+                // Filter for Excel files
                 currentGitHubFiles = data.filter(item => item.name.endsWith('.xlsx') || item.name.endsWith('.xls'));
+
+                // Sort Descending (Z-A)
                 currentGitHubFiles.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
 
                 ghFileSelect.innerHTML = '<option value="" disabled selected>Select File...</option>';
                 currentGitHubFiles.forEach((f, index) => {
                     const opt = document.createElement('option');
-                    opt.value = index; 
+                    opt.value = index; // Store index to access file object later
                     opt.textContent = f.name;
                     ghFileSelect.appendChild(opt);
                 });
@@ -499,13 +475,11 @@
 
             if (!fileObj) return;
 
-            // Generate Unique ID based on path
-            currentFileId = `gh_progress_${fileObj.path}`;
-
             btnGhLoad.textContent = "Downloading...";
             btnGhLoad.disabled = true;
 
             try {
+                // Fetch the raw file content
                 const response = await fetch(fileObj.download_url);
                 if (!response.ok) throw new Error("Download failed");
                 const arrayBuffer = await response.arrayBuffer();
@@ -524,10 +498,6 @@
         function handleUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-
-            // Generate Unique ID based on filename (Local)
-            currentFileId = `local_progress_${file.name}`;
-
             const reader = new FileReader();
             reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
@@ -563,23 +533,7 @@
             hasMeanings = rawCards[0].meanings.length > 0;
 
             updateModeButtons();
-            
-            // --- RESUME LOGIC ---
-            const savedIndex = localStorage.getItem(currentFileId);
-            currentIndex = 0; 
-
-            if (savedIndex !== null) {
-                const parsedIndex = parseInt(savedIndex);
-                if (!isNaN(parsedIndex) && parsedIndex < rawCards.length && parsedIndex > 0) {
-                    const resume = confirm(`You left off at card ${parsedIndex + 1}. Do you want to resume?`);
-                    if (resume) {
-                        currentIndex = parsedIndex;
-                    } else {
-                        localStorage.removeItem(currentFileId);
-                    }
-                }
-            }
-
+            currentIndex = 0;
             isFlipped = false;
             currentMode = 'chinese';
             updateModeActiveState();
@@ -596,10 +550,9 @@
             appScreen.classList.add('hidden');
             setupScreen.classList.remove('hidden');
             fileInput.value = '';
-            currentFileId = null; 
         }
 
-        // --- APP LOGIC ---
+        // --- IDENTICAL APP LOGIC ---
         function updateModeButtons() {
             if (!hasMeanings) {
                 btnChinese.textContent = "Chinese -> Pinyin";
@@ -675,40 +628,11 @@
         function startTimer() { stopTimer(); timeElapsed = 0; timeVal.textContent = "00:00"; timerInterval = setInterval(() => { timeElapsed++; const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); const s = (timeElapsed % 60).toString().padStart(2, '0'); timeVal.textContent = `${m}:${s}`; }, 1000); }
         function stopTimer() { clearInterval(timerInterval); }
         function restartQuiz() { correctFirstTryCount = 0; wrongClicks = 0; isFirstAttempt = true; currentIndex = 0; viewResult.classList.add('hidden'); viewTest.classList.remove('hidden'); controlBar.classList.remove('hidden'); startTimer(); renderTest(); }
+        function showResults() { stopTimer(); viewTest.classList.add('hidden'); controlBar.classList.add('hidden'); viewResult.classList.remove('hidden'); const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); const s = (timeElapsed % 60).toString().padStart(2, '0'); resTime.textContent = `${m}:${s}`; resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length}`; resAccuracyPct = rawCards.length ? `${Math.round((correctFirstTryCount / rawCards.length) * 100)}%` : "0%"; document.getElementById('res-accuracy-pct').textContent = resAccuracyPct; resMistakes.textContent = wrongClicks; }
         function flipCard() { isFlipped = !isFlipped; cardContainer.classList.toggle('flipped'); }
-        
-        function prevCard() { 
-            if (currentIndex > 0) { 
-                currentIndex--; 
-                saveProgress(); 
-                isFlipped = false; 
-                renderCard(); 
-            } 
-        }
-        function nextCard() { 
-            if (currentIndex < rawCards.length - 1) { 
-                if (appMode === 'test' && !testOptions.querySelector('.correct')) { 
-                    testFeedback.parentElement.classList.add('shaking'); 
-                    setTimeout(() => testFeedback.parentElement.classList.remove('shaking'), 300); 
-                    return; 
-                } 
-                currentIndex++; 
-                saveProgress(); 
-                if (appMode === 'learn') { 
-                    isFlipped = false; 
-                    renderCard(); 
-                } else renderTest(); 
-            } else { 
-                if (appMode === 'test') { 
-                    if (!testOptions.querySelector('.correct')) return; 
-                    // Quiz done.
-                    showResults(); 
-                } else { 
-                    cardContainer.parentElement.classList.add('shaking'); 
-                    setTimeout(() => cardContainer.parentElement.classList.remove('shaking'), 400); 
-                } 
-            } 
-        }
+        function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; renderCard(); } }
+        function nextCard() { if (currentIndex < rawCards.length - 1) { if (appMode === 'test' && !testOptions.querySelector('.correct')) { testFeedback.parentElement.classList.add('shaking'); setTimeout(() => testFeedback.parentElement.classList.remove('shaking'), 300); return; } currentIndex++; if (appMode === 'learn') { isFlipped = false; renderCard(); } else renderTest(); } else { if (appMode === 'test') { if (!testOptions.querySelector('.correct')) return; showResults(); } else { cardContainer.parentElement.classList.add('shaking'); setTimeout(() => cardContainer.parentElement.classList.remove('shaking'), 400); } } }
     </script>
 </body>
+
 </html>
