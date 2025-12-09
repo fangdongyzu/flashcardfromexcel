@@ -162,8 +162,8 @@
     <script>
         // --- 1. GITHUB CONFIGURATION (EDIT THIS) ---
         const GH_CONFIG = {
-            owner: 'fangdongyzu', // e.g. 'john-doe'
-            repo: 'flashcardfromexcel',  // e.g. 'flashcards'
+            owner: 'YOUR_USERNAME', // e.g. 'john-doe'
+            repo: 'YOUR_REPO_NAME',  // e.g. 'flashcards'
             branch: 'main'           // usually 'main' or 'master'
         };
 
@@ -256,7 +256,7 @@
 
         // --- GITHUB API INTEGRATION ---
         async function initGitHub() {
-            if(GH_CONFIG.owner === 'YOUR_USERNAME') {
+            if(GH_CONFIG.owner === 'fangdongyzu') {
                 repoStatus.textContent = "Please configure your username in the code.";
                 repoStatus.classList.add('text-red-500');
                 return;

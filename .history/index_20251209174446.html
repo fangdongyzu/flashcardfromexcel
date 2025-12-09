@@ -162,8 +162,8 @@
     <script>
         // --- 1. GITHUB CONFIGURATION (EDIT THIS) ---
         const GH_CONFIG = {
-            owner: 'fangdongyzu', // e.g. 'john-doe'
-            repo: 'flashcardfromexcel',  // e.g. 'flashcards'
+            owner: 'YOUR_USERNAME', // e.g. 'john-doe'
+            repo: 'YOUR_REPO_NAME',  // e.g. 'flashcards'
             branch: 'main'           // usually 'main' or 'master'
         };
 
@@ -493,4 +493,4 @@
         function nextCard() { if (currentIndex < rawCards.length - 1) { if (appMode === 'test' && !testOptions.querySelector('.correct')) { testFeedback.parentElement.classList.add('shaking'); setTimeout(() => testFeedback.parentElement.classList.remove('shaking'), 300); return; } currentIndex++; if (appMode === 'learn') { isFlipped = false; renderCard(); } else renderTest(); } else { if (appMode === 'test') { if (!testOptions.querySelector('.correct')) return; showResults(); } else { cardContainer.parentElement.classList.add('shaking'); setTimeout(() => cardContainer.parentElement.classList.remove('shaking'), 400); } } }
     </script>
 </body>
-</html>
+</html>f

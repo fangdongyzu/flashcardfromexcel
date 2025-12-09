@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Flashcards & Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- 3D Flip Styles --- */
+        .perspective-container { perspective: 1000px; }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        .card-container.flipped .card-inner { transform: rotateX(180deg); }
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 1.5rem;
+            background: white;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .card-back { transform: rotateX(180deg); background: #ffffff; border: 2px solid #e5e7eb; }
+        .card-front { background: #ffffff; border: 2px solid #e5e7eb; }
+
+        /* Scrollbars */
+        .card-face::-webkit-scrollbar { width: 8px; }
+        .card-face::-webkit-scrollbar-track { background: transparent; }
+        .card-face::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+
+        /* Input Zone */
+        .drop-zone { border: 2px dashed #cbd5e1; transition: all 0.3s ease; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #3b82f6; background-color: #eff6ff; }
+
+        /* Progress & Buttons */
+        .progress-fill { transition: width 0.3s ease; }
+        .mode-btn.active { background-color: #1e293b; color: white; border-color: #1e293b; }
+
+        /* Setup Tabs */
+        .setup-tab.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: 600; }
+        .setup-tab { color: #64748b; font-weight: 500; cursor: pointer; padding-bottom: 8px; transition: all 0.2s; }
+        .setup-tab:hover { color: #334155; }
+
+        /* Shuffle Animation */
+        @keyframes shuffleShake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(-1deg); }
+            50% { transform: translateX(5px) rotate(1deg); }
+            75% { transform: translateX(-5px) rotate(-1deg); }
+            100% { transform: translateX(0); }
+        }
+        .shaking { animation: shuffleShake 0.4s ease-in-out; }
+
+        /* --- TEST MODE STYLES --- */
+        .option-btn {
+            transition: all 0.2s ease;
+            border: 2px solid #e2e8f0; 
+        }
+        .option-btn:hover:not(:disabled) {
+            border-color: #94a3b8;
+            background-color: #f8fafc;
+            transform: translateY(-1px);
+        }
+        
+        /* CORRECT STATE */
+        .option-btn.correct {
+            background-color: #dcfce7 !important; 
+            border-color: #22c55e !important; 
+            color: #15803d !important; 
+            cursor: default;
+        }
+
+        /* INCORRECT STATE */
+        .option-btn.incorrect {
+            background-color: #fee2e2 !important; 
+            border-color: #ef4444 !important; 
+            color: #b91c1c !important; 
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col items-center justify-center text-slate-800 p-4">
+
+    <div id="setup-screen" class="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl text-center">
+        <div class="mb-4">
+            <i class="fa-solid fa-layer-group text-5xl text-blue-500 mb-4"></i>
+            <h1 class="text-3xl font-bold mb-2">Flashcard Import</h1>
+            <p class="text-slate-500 text-sm">Choose a method to load your deck</p>
+        </div>
+
+        <div class="flex justify-center gap-8 mb-6 border-b border-slate-100">
+            <button onclick="switchSetupTab('library')" id="tab-btn-library" class="setup-tab active">Library</button>
+            <button onclick="switchSetupTab('upload')" id="tab-btn-upload" class="setup-tab">Upload File</button>
+        </div>
+        
+        <div id="panel-library" class="animate-fade-in">
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select Folder</label>
+                    <select id="folder-select" class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                        <option value="" disabled selected>Choose Category...</option>
+                        </select>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Select File</label>
+                    <select id="file-select" disabled class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                        <option value="" disabled selected>-- First choose folder --</option>
+                    </select>
+                </div>
+
+                <button onclick="loadServerFile()" id="btn-load-server" disabled class="w-full py-3 mt-2 rounded-xl bg-slate-800 text-white font-bold shadow-lg hover:bg-slate-700 hover:shadow-xl transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    Load Deck
+                </button>
+            </div>
+        </div>
+
+        <div id="panel-upload" class="hidden animate-fade-in">
+            <label class="drop-zone w-full h-40 flex flex-col items-center justify-center rounded-2xl cursor-pointer mb-6">
+                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+                <span class="text-slate-500 font-medium">Click to upload .xlsx</span>
+                <input type="file" id="file-input" accept=".xlsx, .xls, .csv" class="hidden" />
+            </label>
+
+            <div class="text-xs text-left text-slate-400 bg-slate-50 p-4 rounded-xl">
+                <p class="font-bold mb-1">Format Requirement:</p>
+                <ul class="list-disc list-inside">
+                    <li>Col 1: Chinese</li>
+                    <li>Col 2: Pinyin</li>
+                    <li>Col 3+: Meaning(s)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden w-full max-w-2xl flex flex-col h-[95vh] py-2">
+        
+        <div class="flex flex-col md:flex-row items-center justify-between mb-3 px-2 gap-3">
+            <div class="flex gap-4">
+                <button onclick="resetApp()" class="text-slate-400 hover:text-red-500 transition text-sm flex items-center">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Exit
+                </button>
+                <button onclick="shuffleCards()" class="text-slate-400 hover:text-blue-500 transition text-sm flex items-center" title="Shuffle Deck">
+                    <i class="fa-solid fa-shuffle mr-1"></i> Shuffle
+                </button>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div id="timer-display" class="hidden text-slate-600 font-mono font-bold bg-white px-3 py-1 rounded-lg shadow-sm border border-slate-200">
+                    <i class="fa-regular fa-clock mr-2"></i><span id="time-val">00:00</span>
+                </div>
+
+                <div class="flex items-center bg-white rounded-full p-1 border border-slate-200 shadow-sm">
+                    <button onclick="setAppMode('learn')" id="tab-learn" class="px-4 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-white transition-all shadow-md">Learn</button>
+                    <button onclick="setAppMode('test')" id="tab-test" class="px-4 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-all">Quiz Mode</button>
+                </div>
+            </div>
+
+            <div class="text-slate-500 font-mono text-sm">
+                <span id="current-count">1</span> / <span id="total-count">0</span>
+            </div>
+        </div>
+
+        <div class="w-full h-2 bg-slate-200 rounded-full mb-4 overflow-hidden">
+            <div id="progress-bar" class="progress-fill h-full bg-blue-500 w-0 rounded-full"></div>
+        </div>
+
+        <div id="mode-controls" class="flex flex-wrap gap-2 justify-center mb-4">
+            <button onclick="setMode('chinese')" id="btn-mode-chinese" class="mode-btn active px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                Chinese Focus
+            </button>
+            <button onclick="setMode('pinyin')" id="btn-mode-pinyin" class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                Pinyin Focus
+            </button>
+            <button onclick="setMode('meaning')" id="btn-mode-meaning" class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition">
+                Meaning Focus
+            </button>
+        </div>
+
+        <div id="view-flashcard" class="flex-grow flex flex-col relative">
+            <div class="flex-grow perspective-container w-full relative mb-6">
+                <div id="card-container" class="card-container cursor-pointer w-full h-full" onclick="flipCard()">
+                    <div class="card-inner">
+                        <div class="card-face card-front">
+                            <div id="card-front-content" class="text-center w-full"></div>
+                            <p class="absolute bottom-6 text-slate-300 text-xs uppercase tracking-widest font-semibold">Tap to Flip</p>
+                        </div>
+                        <div class="card-face card-back">
+                            <div id="card-back-content" class="w-full max-w-md space-y-4 text-center"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-test" class="hidden flex-grow flex flex-col mb-4">
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-4 flex items-center justify-center min-h-[160px]">
+                <div id="test-question" class="text-center"></div>
+            </div>
+            <div id="test-options" class="grid grid-cols-1 md:grid-cols-2 gap-3 flex-grow content-start"></div>
+            <div id="test-feedback" class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">
+                Select an answer
+            </div>
+        </div>
+
+        <div id="view-result" class="hidden flex-grow flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl border border-slate-200 p-8 mb-4 text-center">
+            <div class="mb-6">
+                <i class="fa-solid fa-trophy text-6xl text-yellow-400 mb-4 animate-bounce"></i>
+                <h2 class="text-3xl font-bold text-slate-800">Quiz Complete!</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-8">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p class="text-xs uppercase font-bold text-blue-400 mb-1">Total Time</p>
+                    <p id="res-time" class="text-2xl font-bold text-blue-800">00:00</p>
+                </div>
+                <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                    <p class="text-xs uppercase font-bold text-green-500 mb-1">One-Click Correct</p>
+                    <p id="res-accuracy" class="text-2xl font-bold text-green-800">0/0</p>
+                    <p id="res-accuracy-pct" class="text-xs font-bold text-green-600 mt-1">0%</p>
+                </div>
+                <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                    <p class="text-xs uppercase font-bold text-red-400 mb-1">Wrong Extra Clicks</p>
+                    <p id="res-mistakes" class="text-2xl font-bold text-red-800">0</p>
+                </div>
+            </div>
+
+            <button onclick="restartQuiz()" class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 transition">
+                Try Again
+            </button>
+        </div>
+        
+        <div id="control-bar" class="flex items-center justify-center gap-6 pb-2 mt-auto">
+            <button id="btn-prev" onclick="prevCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                <i class="fa-solid fa-arrow-left text-xl"></i>
+            </button>
+            
+            <button id="btn-flip" onclick="flipCard()" class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">
+                Flip
+            </button>
+
+            <button id="btn-next" onclick="nextCard()" class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 hover:scale-110 transition flex items-center justify-center border border-slate-100">
+                <i class="fa-solid fa-arrow-right text-xl"></i>
+            </button>
+        </div>
+        
+    </div>
+
+    <script>
+        // --- DATA CONFIGURATION ---
+        // IMPORTANT: Update this list to match your actual server files.
+        const SERVER_DATA = {
+            "lh": ["Chapter 1.xlsx", "Chapter 2.xlsx", "Chapter 10.xlsx", "Review.xlsx"],
+            "ds": ["Vocab A.xlsx", "Vocab B.xlsx", "Advanced.xlsx"]
+        };
+
+        // --- DATA STATE ---
+        let rawCards = []; 
+        let currentIndex = 0;
+        let isFlipped = false;
+        
+        // --- APP STATE ---
+        let currentMode = 'chinese'; 
+        let appMode = 'learn'; 
+        let hasMeanings = false;
+
+        // --- QUIZ & TIMER STATE ---
+        let timerInterval;
+        let timeElapsed = 0; 
+        let correctFirstTryCount = 0;
+        let wrongClicks = 0;
+        let isFirstAttempt = true;
+
+        // --- DOM ELEMENTS ---
+        const setupScreen = document.getElementById('setup-screen');
+        const appScreen = document.getElementById('app-screen');
+        const fileInput = document.getElementById('file-input');
+        
+        // Setup Screen Elements
+        const panelLibrary = document.getElementById('panel-library');
+        const panelUpload = document.getElementById('panel-upload');
+        const tabBtnLibrary = document.getElementById('tab-btn-library');
+        const tabBtnUpload = document.getElementById('tab-btn-upload');
+        const folderSelect = document.getElementById('folder-select');
+        const fileSelect = document.getElementById('file-select');
+        const btnLoadServer = document.getElementById('btn-load-server');
+        
+        const currentCountEl = document.getElementById('current-count');
+        const totalCountEl = document.getElementById('total-count');
+        const progressBar = document.getElementById('progress-bar');
+        
+        const btnChinese = document.getElementById('btn-mode-chinese');
+        const btnPinyin = document.getElementById('btn-mode-pinyin');
+        const btnMeaning = document.getElementById('btn-mode-meaning');
+        const tabLearn = document.getElementById('tab-learn');
+        const tabTest = document.getElementById('tab-test');
+        
+        const btnPrev = document.getElementById('btn-prev');
+        const btnFlip = document.getElementById('btn-flip'); 
+        const btnNext = document.getElementById('btn-next');
+        const controlBar = document.getElementById('control-bar');
+
+        const viewFlashcard = document.getElementById('view-flashcard');
+        const viewTest = document.getElementById('view-test');
+        const viewResult = document.getElementById('view-result');
+        const timerDisplay = document.getElementById('timer-display');
+        const timeVal = document.getElementById('time-val');
+        
+        const cardContainer = document.getElementById('card-container');
+        const frontContent = document.getElementById('card-front-content');
+        const backContent = document.getElementById('card-back-content');
+
+        const testQuestion = document.getElementById('test-question');
+        const testOptions = document.getElementById('test-options');
+        const testFeedback = document.getElementById('test-feedback');
+
+        // Results elements
+        const resTime = document.getElementById('res-time');
+        const resAccuracy = document.getElementById('res-accuracy');
+        const resAccuracyPct = document.getElementById('res-accuracy-pct');
+        const resMistakes = document.getElementById('res-mistakes');
+
+        // --- INITIALIZATION ---
+        initServerData();
+
+        // --- EVENT LISTENERS ---
+        fileInput.addEventListener('change', handleUploadFile);
+        folderSelect.addEventListener('change', handleFolderChange);
+        fileSelect.addEventListener('change', () => {
+             btnLoadServer.disabled = false;
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (setupScreen.classList.contains('hidden') && !viewResult.classList.contains('hidden')) return;
+
+            if (setupScreen.classList.contains('hidden')) {
+                if (e.code === 'ArrowRight') nextCard();
+                
+                if(appMode === 'learn') {
+                    if (e.code === 'ArrowLeft') prevCard();
+                    if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+                    else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') flipCard();
+                }
+            }
+        });
+
+        // --- 0. SETUP SCREEN LOGIC ---
+        function initServerData() {
+            // Populate Folders
+            Object.keys(SERVER_DATA).forEach(folder => {
+                const opt = document.createElement('option');
+                opt.value = folder;
+                opt.textContent = folder.toUpperCase();
+                folderSelect.appendChild(opt);
+            });
+        }
+
+        function switchSetupTab(tab) {
+            if(tab === 'library') {
+                panelLibrary.classList.remove('hidden');
+                panelUpload.classList.add('hidden');
+                tabBtnLibrary.classList.add('active');
+                tabBtnUpload.classList.remove('active');
+            } else {
+                panelLibrary.classList.add('hidden');
+                panelUpload.classList.remove('hidden');
+                tabBtnLibrary.classList.remove('active');
+                tabBtnUpload.classList.add('active');
+            }
+        }
+
+        function handleFolderChange() {
+            const folder = folderSelect.value;
+            const files = SERVER_DATA[folder] || [];
+            
+            // Sort Descending
+            files.sort((a, b) => b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }));
+
+            fileSelect.innerHTML = '<option value="" disabled selected>Select a file...</option>';
+            files.forEach(f => {
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = f;
+                fileSelect.appendChild(opt);
+            });
+            
+            fileSelect.disabled = false;
+            btnLoadServer.disabled = true; // Wait for file selection
+        }
+
+        // --- 1. FILE PROCESSING ---
+        
+        // Method A: Server Fetch
+        async function loadServerFile() {
+            const folder = folderSelect.value;
+            const filename = fileSelect.value;
+            if(!folder || !filename) return;
+
+            // Construct path (Assumes files are in folders relative to index.html)
+            const path = `./${folder}/${filename}`;
+            
+            btnLoadServer.textContent = "Loading...";
+            
+            try {
+                const response = await fetch(path);
+                if (!response.ok) throw new Error("File not found");
+                const arrayBuffer = await response.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                processData(rawData);
+            } catch (error) {
+                alert("Error loading file: " + error.message + "\nMake sure files are in the correct folder.");
+                btnLoadServer.textContent = "Load Deck";
+            }
+        }
+
+        // Method B: User Upload
+        function handleUploadFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                processData(rawData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processData(rows) {
+            if (rows.length < 2) { alert("File is empty."); return; }
+            const headers = rows[0]; 
+            
+            rawCards = rows.slice(1).filter(row => row[0]).map(row => {
+                const meanings = row.slice(2).map((val, idx) => ({
+                    label: headers[idx + 2] || `Def ${idx + 1}`,
+                    value: val || "-"
+                })).filter(m => m.value !== "-");
+                const meaningString = meanings.map(m => m.value).join(", ");
+                return {
+                    chinese: { label: "Chinese", value: row[0] },
+                    pinyin: { label: "Pinyin", value: row[1] || "-" },
+                    meanings: meanings,
+                    meaningString: meaningString
+                };
+            });
+
+            if (rawCards.length === 0) { alert("No valid cards found."); return; }
+            hasMeanings = rawCards[0].meanings.length > 0;
+            
+            updateModeButtons();
+            currentIndex = 0;
+            isFlipped = false;
+            currentMode = 'chinese';
+            
+            updateModeActiveState();
+            setAppMode('learn'); 
+            
+            // Reset Setup Screen UI for next time
+            btnLoadServer.textContent = "Load Deck";
+            setupScreen.classList.add('hidden');
+            appScreen.classList.remove('hidden');
+        }
+
+        function resetApp() {
+            appScreen.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+            stopTimer();
+            // Optional: Clear selection
+            fileInput.value = '';
+        }
+
+        function updateModeButtons() {
+            if (!hasMeanings) {
+                btnChinese.textContent = "Chinese -> Pinyin";
+                btnPinyin.textContent = "Pinyin -> Chinese";
+                btnMeaning.style.display = 'none'; 
+            } else {
+                btnMeaning.style.display = 'block';
+            }
+        }
+
+        // --- 2. GLOBAL CONTROLS ---
+        function setAppMode(mode) {
+            appMode = mode;
+            viewResult.classList.add('hidden'); 
+            controlBar.classList.remove('hidden'); 
+
+            if (mode === 'learn') {
+                tabLearn.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-slate-800 text-white transition-all shadow-md";
+                tabTest.className = "px-4 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-all";
+                
+                viewFlashcard.classList.remove('hidden');
+                viewTest.classList.add('hidden');
+                timerDisplay.classList.add('hidden');
+                
+                btnFlip.style.display = 'block'; 
+                btnPrev.style.visibility = 'visible'; 
+                
+                stopTimer();
+                renderCard();
+
+            } else {
+                tabTest.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-blue-600 text-white transition-all shadow-md";
+                tabLearn.className = "px-4 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-all";
+                
+                viewFlashcard.classList.add('hidden');
+                viewTest.classList.remove('hidden');
+                timerDisplay.classList.remove('hidden');
+                
+                btnFlip.style.display = 'none'; 
+                btnPrev.style.visibility = 'hidden'; 
+
+                restartQuiz();
+            }
+        }
+
+        function setMode(mode) {
+            if (currentMode === mode) return;
+            currentMode = mode;
+            updateModeActiveState();
+            if (appMode === 'learn') renderCard();
+            else restartQuiz(); 
+        }
+
+        function updateModeActiveState() {
+            [btnChinese, btnPinyin, btnMeaning].forEach(btn => btn.classList.remove('active'));
+            if (currentMode === 'chinese') btnChinese.classList.add('active');
+            if (currentMode === 'pinyin') btnPinyin.classList.add('active');
+            if (currentMode === 'meaning') btnMeaning.classList.add('active');
+        }
+
+        function shuffleCards() {
+            for (let i = rawCards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [rawCards[i], rawCards[j]] = [rawCards[j], rawCards[i]];
+            }
+            if (appMode === 'learn') {
+                currentIndex = 0;
+                renderCard();
+            } else {
+                restartQuiz();
+            }
+            
+            const animTarget = appMode === 'learn' ? cardContainer.parentElement : testQuestion.parentElement;
+            animTarget.classList.add('shaking');
+            setTimeout(() => animTarget.classList.remove('shaking'), 400);
+        }
+
+        function updateProgress() {
+            currentCountEl.textContent = currentIndex + 1;
+            totalCountEl.textContent = rawCards.length;
+            const percentage = ((currentIndex + 1) / rawCards.length) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+        // --- 3. TIMER LOGIC ---
+        function startTimer() {
+            stopTimer();
+            timeElapsed = 0;
+            timeVal.textContent = "00:00";
+            timerInterval = setInterval(() => {
+                timeElapsed++;
+                const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0');
+                const s = (timeElapsed % 60).toString().padStart(2, '0');
+                timeVal.textContent = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function restartQuiz() {
+            correctFirstTryCount = 0;
+            wrongClicks = 0;
+            isFirstAttempt = true;
+            currentIndex = 0;
+            
+            viewResult.classList.add('hidden');
+            viewTest.classList.remove('hidden');
+            controlBar.classList.remove('hidden');
+            
+            startTimer();
+            renderTest();
+        }
+
+        // --- 4. LEARN MODE RENDER ---
+        function renderCard() {
+            const cardData = rawCards[currentIndex];
+
+            if (!isFlipped) {
+                const inner = cardContainer.querySelector('.card-inner');
+                inner.style.transition = 'none';
+                cardContainer.classList.remove('flipped');
+                void cardContainer.offsetWidth; 
+                inner.style.transition = '';
+            }
+
+            let frontHtml = '';
+            let backItems = [];
+
+            if (currentMode === 'chinese') {
+                frontHtml = `<h2 class="text-6xl md:text-7xl font-bold text-slate-800 leading-tight">${cardData.chinese.value}</h2>`;
+                backItems.push(cardData.pinyin);
+                if(hasMeanings) backItems = backItems.concat(cardData.meanings);
+            } else if (currentMode === 'pinyin') {
+                frontHtml = `<h2 class="text-5xl md:text-6xl font-bold text-slate-800 leading-tight">${cardData.pinyin.value}</h2>`;
+                backItems.push(cardData.chinese);
+                if(hasMeanings) backItems = backItems.concat(cardData.meanings);
+            } else if (currentMode === 'meaning') {
+                const meaningsHtml = cardData.meanings.map(m => `
+                    <div class="mb-4 last:mb-0">
+                        <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">${m.label}</div>
+                        <div class="text-3xl font-bold text-slate-800">${m.value}</div>
+                    </div>`).join('');
+                frontHtml = `<div class="flex flex-col">${meaningsHtml}</div>`;
+                backItems.push(cardData.chinese);
+                backItems.push(cardData.pinyin);
+            }
+
+            frontContent.innerHTML = frontHtml;
+            backContent.innerHTML = '';
+            backItems.forEach(item => {
+                if(!item.value || item.value === '-') return;
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex flex-col border-b border-slate-100 pb-3 last:border-0";
+                rowDiv.innerHTML = `
+                    <span class="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1">${item.label}</span>
+                    <span class="text-7xl text-slate-800 font-bold">${item.value}</span>
+                `;
+                backContent.appendChild(rowDiv);
+            });
+            updateProgress();
+        }
+
+        // --- 5. TEST MODE RENDER ---
+        function renderTest() {
+            testFeedback.textContent = "Select an answer";
+            testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest";
+            isFirstAttempt = true;
+
+            const currentCard = rawCards[currentIndex];
+            let questionHtml = '';
+            let answerKey = ''; 
+
+            if (currentMode === 'chinese') {
+                questionHtml = `<div class="text-xs text-slate-400 uppercase tracking-wider mb-2">What does this mean?</div>
+                                <div class="text-6xl font-bold text-slate-800">${currentCard.chinese.value}</div>`;
+                answerKey = 'meaningString'; 
+            } else if (currentMode === 'pinyin') {
+                questionHtml = `<div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Select the Chinese Character</div>
+                                <div class="text-5xl font-bold text-slate-800">${currentCard.pinyin.value}</div>`;
+                answerKey = 'chinese';
+            } else if (currentMode === 'meaning') {
+                questionHtml = `<div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Select the Chinese Character</div>
+                                <div class="text-3xl font-bold text-slate-800 line-clamp-3">${currentCard.meaningString}</div>`;
+                answerKey = 'chinese';
+            }
+
+            testQuestion.innerHTML = questionHtml;
+
+            const options = [currentCard];
+            while (options.length < 4 && options.length <= rawCards.length) {
+                const randomCard = rawCards[Math.floor(Math.random() * rawCards.length)];
+                if (!options.includes(randomCard)) options.push(randomCard);
+            }
+
+            for (let i = options.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [options[i], options[j]] = [options[j], options[i]];
+            }
+
+            testOptions.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "option-btn w-full p-4 rounded-xl text-4xl font-medium text-slate-700 bg-white shadow-sm flex items-center justify-center min-h-[80px]";
+                
+                let btnText = (answerKey === 'meaningString') ? opt.meaningString : opt.chinese.value;
+                btn.textContent = btnText || "-";
+                
+                btn.onclick = () => checkAnswer(btn, opt === currentCard);
+                testOptions.appendChild(btn);
+            });
+
+            updateProgress();
+        }
+
+        function checkAnswer(btnElement, isCorrect) {
+            if (testOptions.querySelector('.correct')) return; 
+
+            if (isCorrect) {
+                btnElement.classList.add('correct');
+                testFeedback.textContent = "Correct! Press Next.";
+                testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-green-600 uppercase tracking-widest";
+                
+                if(isFirstAttempt) {
+                    correctFirstTryCount++;
+                }
+
+                const allBtns = testOptions.querySelectorAll('button');
+                allBtns.forEach(b => b.disabled = true);
+            } else {
+                btnElement.classList.add('incorrect');
+                btnElement.disabled = true; 
+                testFeedback.textContent = "Try again";
+                testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
+                
+                wrongClicks++;
+                isFirstAttempt = false; 
+            }
+        }
+
+        function showResults() {
+            stopTimer();
+            viewTest.classList.add('hidden');
+            controlBar.classList.add('hidden'); 
+            viewResult.classList.remove('hidden');
+
+            const totalQ = rawCards.length;
+            
+            const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0');
+            const s = (timeElapsed % 60).toString().padStart(2, '0');
+            resTime.textContent = `${m}:${s}`;
+
+            const accuracyPct = totalQ > 0 ? Math.round((correctFirstTryCount / totalQ) * 100) : 0;
+            resAccuracy.textContent = `${correctFirstTryCount}/${totalQ}`;
+            resAccuracyPct.textContent = `${accuracyPct}%`;
+
+            resMistakes.textContent = `${wrongClicks}`;
+        }
+
+        // --- 6. NAVIGATION ---
+        function flipCard() { isFlipped = !isFlipped; cardContainer.classList.toggle('flipped'); }
+        
+        function nextCard() { 
+            if (currentIndex < rawCards.length - 1) { 
+                if(appMode === 'test') {
+                    const hasCorrect = testOptions.querySelector('.correct');
+                    if(!hasCorrect) {
+                        testFeedback.textContent = "Please answer correctly first";
+                        testFeedback.parentElement.classList.add('shaking');
+                        setTimeout(() => testFeedback.parentElement.classList.remove('shaking'), 300);
+                        return;
+                    }
+                }
+
+                currentIndex++; 
+                if(appMode === 'learn') {
+                    isFlipped = false; 
+                    renderCard();
+                } else renderTest(); 
+            } else {
+                if(appMode === 'test') {
+                    const hasCorrect = testOptions.querySelector('.correct');
+                    if(!hasCorrect) {
+                        testFeedback.textContent = "Please finish the last question";
+                        return;
+                    }
+                    showResults();
+                } else {
+                     cardContainer.parentElement.classList.add('shaking');
+                     setTimeout(() => cardContainer.parentElement.classList.remove('shaking'), 400);
+                }
+            }
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                isFlipped = false;
+                renderCard();
+            }
+        }
+
+    </script>
+</body>
+</html>
