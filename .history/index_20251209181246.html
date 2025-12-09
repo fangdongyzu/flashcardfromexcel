@@ -407,7 +407,7 @@
 
                 // --- MODIFIED LINE IS HERE ---
                 // We filter for items that are directories AND the name is NOT '.HISTORY'
-                const folders = data.filter(item => item.type === 'dir' && item.name !== '.history');
+                const folders = data.filter(item => item.type === 'dir' && item.name !== 'HISTORY');
                 // -----------------------------
 
                 if (folders.length === 0) {
