@@ -663,13 +663,51 @@
         function updateProgress() { currentCountEl.textContent = currentIndex + 1; totalCountEl.textContent = rawCards.length; progressBar.style.width = `${((currentIndex + 1) / rawCards.length) * 100}%`; }
         function renderCard() {
             const card = rawCards[currentIndex];
-            if (!isFlipped) { const inner = cardContainer.querySelector('.card-inner'); inner.style.transition = 'none'; cardContainer.classList.remove('flipped'); void cardContainer.offsetWidth; inner.style.transition = ''; }
+
+            // Reset flip animation state
+            if (!isFlipped) {
+                const inner = cardContainer.querySelector('.card-inner');
+                inner.style.transition = 'none';
+                cardContainer.classList.remove('flipped');
+                void cardContainer.offsetWidth;
+                inner.style.transition = '';
+            }
+
             let front = '', backItems = [];
-            if (currentMode === 'chinese') { front = `<h2 class="text-6xl md:text-7xl font-bold text-slate-800">${card.chinese.value}</h2>`; backItems = [card.pinyin, ...card.meanings]; }
-            else if (currentMode === 'pinyin') { front = `<h2 class="text-5xl md:text-6xl font-bold text-slate-800">${card.pinyin.value}</h2>`; backItems = [card.chinese, ...card.meanings]; }
-            else { front = `<div class="flex flex-col gap-4">` + card.meanings.map(m => `<div><div class="text-xs text-slate-400 uppercase tracking-widest">${m.label}</div><div class="text-3xl font-bold text-slate-800">${m.value}</div></div>`).join('') + `</div>`; backItems = [card.chinese, card.pinyin]; }
+
+            // 1. Chinese Front
+            if (currentMode === 'chinese') {
+                front = `<h2 class="text-6xl md:text-7xl font-bold text-slate-800">${card.chinese.value}</h2>`;
+                backItems = [card.pinyin, ...card.meanings];
+            }
+            // 2. Pinyin Front
+            else if (currentMode === 'pinyin') {
+                front = `<h2 class="text-5xl md:text-6xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
+                backItems = [card.chinese, ...card.meanings];
+            }
+            // 3. Meaning Front (THIS IS THE SECTION TO UPDATE)
+            else {
+                front = `<div class="flex flex-col gap-4">` +
+                    card.meanings.map(m =>
+                        `<div>
+                        <div class="text-xs text-slate-400 uppercase tracking-widest">${m.label}</div>
+                        <div class="text-5xl md:text-6xl font-bold text-slate-800">${m.value}</div>
+                    </div>`
+                    ).join('') + `</div>`;
+
+                backItems = [card.chinese, card.pinyin];
+            }
+
             frontContent.innerHTML = front;
-            backContent.innerHTML = backItems.map(item => `<div class="flex flex-col border-b border-slate-100 pb-3 last:border-0"><span class="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1">${item.label}</span><span class="text-7xl text-slate-800 font-bold">${item.value}</span></div>`).join('');
+
+            // Back content generation
+            backContent.innerHTML = backItems.map(item =>
+                `<div class="flex flex-col border-b border-slate-100 pb-3 last:border-0">
+                    <span class="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1">${item.label}</span>
+                    <span class="text-7xl text-slate-800 font-bold">${item.value}</span>
+                </div>`
+            ).join('');
+
             updateProgress();
             saveProgress();
         }
