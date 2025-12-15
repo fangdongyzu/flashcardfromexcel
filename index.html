@@ -103,10 +103,21 @@
 
         /* Animations */
         @keyframes shuffleShake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px) rotate(-1deg); }
-            75% { transform: translateX(5px) rotate(1deg); }
-            100% { transform: translateX(0); }
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px) rotate(-1deg);
+            }
+
+            75% {
+                transform: translateX(5px) rotate(1deg);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
         }
 
         .shaking {
@@ -186,7 +197,8 @@
             </label>
             <div class="text-xs text-left text-slate-400 bg-slate-50 p-4 rounded-xl">
                 <p class="font-bold mb-1">Manual Mode:</p>
-                <p>Use this tab if you want to upload a file from your computer instead of using the GitHub library. Ensure CSV files are UTF-8 encoded.</p>
+                <p>Use this tab if you want to upload a file from your computer instead of using the GitHub library.
+                    Ensure CSV files are UTF-8 encoded.</p>
             </div>
         </div>
     </div>
@@ -315,7 +327,7 @@
         let timerInterval, timeElapsed = 0;
         let correctFirstTryCount = 0, wrongClicks = 0, isFirstAttempt = true;
         let currentGitHubFiles = [];
-        let currentFileId = null; 
+        let currentFileId = null;
 
         // --- DOM REFERENCES ---
         const setupScreen = document.getElementById('setup-screen');
@@ -382,16 +394,16 @@
         // --- SWIPE / TOUCH LOGIC ---
         let touchStartX = 0;
         let touchEndX = 0;
-        const minSwipeDistance = 50; 
+        const minSwipeDistance = 50;
 
         appScreen.addEventListener('touchstart', e => {
             touchStartX = e.changedTouches[0].screenX;
-        }, {passive: true});
+        }, { passive: true });
 
         appScreen.addEventListener('touchend', e => {
             touchEndX = e.changedTouches[0].screenX;
             handleSwipe();
-        }, {passive: true});
+        }, { passive: true });
 
         function handleSwipe() {
             if (appMode !== 'learn') return;
@@ -477,18 +489,18 @@
                 const response = await fetch(url);
                 const data = await response.json();
 
-                currentGitHubFiles = data.filter(item => 
-                    item.name.endsWith('.xlsx') || 
-                    item.name.endsWith('.xls') || 
+                currentGitHubFiles = data.filter(item =>
+                    item.name.endsWith('.xlsx') ||
+                    item.name.endsWith('.xls') ||
                     item.name.endsWith('.csv')
                 );
-                
+
                 currentGitHubFiles.sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
 
                 ghFileSelect.innerHTML = '<option value="" disabled selected>Select File...</option>';
                 currentGitHubFiles.forEach((f, index) => {
                     const opt = document.createElement('option');
-                    opt.value = index; 
+                    opt.value = index;
                     opt.textContent = f.name;
                     ghFileSelect.appendChild(opt);
                 });
@@ -505,8 +517,6 @@
             const fileObj = currentGitHubFiles[fileIndex];
 
             if (!fileObj) return;
-
-            // Generate Unique ID based on path
             currentFileId = `gh_progress_${fileObj.path}`;
 
             btnGhLoad.textContent = "Downloading...";
@@ -517,7 +527,8 @@
                 if (!response.ok) throw new Error("Download failed");
                 const arrayBuffer = await response.arrayBuffer();
 
-                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                // FIX: Add 'codepage: 65001' to force UTF-8 parsing
+                const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
                 parseWorkbook(workbook);
 
             } catch (err) {
@@ -531,14 +542,13 @@
         function handleUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-
-            // Generate Unique ID based on filename (Local)
             currentFileId = `local_progress_${file.name}`;
 
             const reader = new FileReader();
             reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
+                // FIX: Add 'codepage: 65001' to force UTF-8 parsing
+                const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
                 parseWorkbook(workbook);
             };
             reader.readAsArrayBuffer(file);
@@ -570,10 +580,10 @@
             hasMeanings = rawCards[0].meanings.length > 0;
 
             updateModeButtons();
-            
+
             // --- RESUME LOGIC ---
             const savedIndex = localStorage.getItem(currentFileId);
-            currentIndex = 0; 
+            currentIndex = 0;
 
             if (savedIndex !== null) {
                 const parsedIndex = parseInt(savedIndex);
@@ -603,7 +613,7 @@
             appScreen.classList.add('hidden');
             setupScreen.classList.remove('hidden');
             fileInput.value = '';
-            currentFileId = null; 
+            currentFileId = null;
         }
 
         // --- APP LOGIC ---
@@ -701,4 +711,5 @@
         }
     </script>
 </body>
+
 </html>
