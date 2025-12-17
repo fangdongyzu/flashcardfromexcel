@@ -379,17 +379,52 @@
         ghFolderSelect.addEventListener('change', handleGhFolderChange);
         ghFileSelect.addEventListener('change', () => btnGhLoad.disabled = false);
 
-        // Keyboard support
-        document.addEventListener('keydown', (e) => {
-            if (setupScreen.classList.contains('hidden')) {
-                if (e.code === 'ArrowRight') nextCard();
-                if (appMode === 'learn') {
-                    if (e.code === 'ArrowLeft') prevCard();
-                    if (e.code === 'Space') { e.preventDefault(); flipCard(); }
-                    else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') flipCard();
+        // --- Double-Click Logic for Remote ---
+let clickTimer = null;
+const clickDelay = 300; // Time window (in ms) to detect the second click
+
+document.addEventListener('keydown', (e) => {
+    // Only handle logic if we aren't on the setup screen
+    if (!setupScreen.classList.contains('hidden')) return;
+
+    // 1. Instant Actions (Keep your original Space/Up/Down logic)
+    if (appMode === 'learn') {
+        if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+            e.preventDefault();
+            flipCard();
+            return;
+        }
+    }
+
+    // 2. Navigation Keys (Arrows & Remote PageUp/PgDn)
+    const navKeys = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp'];
+    if (navKeys.includes(e.code)) {
+        if (e.code.includes('Page')) e.preventDefault(); // Prevent scrolling
+
+        if (clickTimer) {
+            // --- SECOND CLICK DETECTED ---
+            clearTimeout(clickTimer);
+            clickTimer = null;
+            
+            console.log("Double Click: Flipping!");
+            if (appMode === 'learn') flipCard();
+        } else {
+            // --- FIRST CLICK DETECTED ---
+            // We wait to see if a second click happens
+            clickTimer = setTimeout(() => {
+                console.log("Single Click: Navigating...");
+                
+                if (e.code === 'ArrowRight' || e.code === 'PageDown') {
+                    nextCard();
+                } else if (e.code === 'ArrowLeft' || e.code === 'PageUp') {
+                    if (appMode === 'learn') prevCard();
                 }
-            }
-        });
+                
+                clickTimer = null; // Reset timer
+            }, clickDelay);
+        }
+    }
+});
 
         // --- SWIPE / TOUCH LOGIC ---
         let touchStartX = 0;
