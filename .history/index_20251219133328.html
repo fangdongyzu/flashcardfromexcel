@@ -62,7 +62,7 @@
             transform: rotateX(180deg);
         }
 
-        /* --- Scale Back Content --- */
+        /* --- Shrink Back Content by 0.25 (Scale to 0.75) --- */
         #card-back-content {
             transform: scale(0.75);
             transform-origin: center;
@@ -664,28 +664,17 @@
             if (currentMode === 'meaning') btnMeaning.classList.add('active');
         }
 
-        // --- SHUFFLE LOGIC (FIXED) ---
-        function randomizeData() {
+        function shuffleCards() {
             for (let i = rawCards.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [rawCards[i], rawCards[j]] = [rawCards[j], rawCards[i]];
             }
-        }
-
-        function shuffleCards() {
-            randomizeData();
+            if (appMode === 'learn') { currentIndex = 0; renderCard(); }
+            else restartQuiz();
             
-            // Animation
             const target = appMode === 'learn' ? cardContainer.parentElement : testQuestion.parentElement;
             target.classList.add('shaking');
             setTimeout(() => target.classList.remove('shaking'), 400);
-
-            if (appMode === 'learn') {
-                 currentIndex = 0; 
-                 renderCard(); 
-            } else {
-                 restartQuiz();
-            }
         }
 
         function updateProgress() {
@@ -694,7 +683,6 @@
             progressBar.style.width = `${((currentIndex + 1) / rawCards.length) * 100}%`;
         }
 
-        // --- FLASHCARD RENDER ---
         function renderCard() {
             const card = rawCards[currentIndex];
 
@@ -737,7 +725,6 @@
             saveProgress();
         }
 
-        // --- QUIZ MODE RENDER ---
         function renderTest() {
             testFeedback.textContent = "Select an answer";
             testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest";
@@ -764,11 +751,9 @@
 
             // Generate Options
             const options = [card];
-            let safety = 0;
-            while (options.length < 4 && options.length < rawCards.length && safety < 100) {
+            while (options.length < 4 && options.length < rawCards.length) {
                 const randomCard = rawCards[Math.floor(Math.random() * rawCards.length)];
                 if (!options.includes(randomCard)) options.push(randomCard);
-                safety++;
             }
             
             // Shuffle Options
@@ -863,7 +848,7 @@
             currentIndex = 0; 
             correctFirstTryCount = 0; 
             wrongClicks = 0; 
-            randomizeData(); // FIX: Call shuffle logic directly, not the UI function
+            shuffleCards(); 
             startTimer(); 
             renderTest(); 
         }

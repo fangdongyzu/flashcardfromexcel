@@ -62,10 +62,12 @@
             transform: rotateX(180deg);
         }
 
-        /* --- Scale Back Content --- */
+        /* --- NEW: Shrink Back Content by 0.25 (Scale to 0.75) --- */
         #card-back-content {
             transform: scale(0.75);
+            /* Ensure it scales from the center */
             transform-origin: center;
+            /* Ensure the width is calculated correctly after scaling */
             width: 100%;
         }
 
@@ -101,10 +103,21 @@
 
         /* Animations */
         @keyframes shuffleShake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-5px) rotate(-1deg); }
-            75% { transform: translateX(5px) rotate(1deg); }
-            100% { transform: translateX(0); }
+            0% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px) rotate(-1deg);
+            }
+
+            75% {
+                transform: translateX(5px) rotate(1deg);
+            }
+
+            100% {
+                transform: translateX(0);
+            }
         }
 
         .shaking {
@@ -223,11 +236,14 @@
 
         <div id="mode-controls" class="flex flex-wrap gap-2 justify-center mb-4">
             <button onclick="setMode('chinese')" id="btn-mode-chinese"
-                class="mode-btn active px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 transition">Chinese Focus</button>
+                class="mode-btn active px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 transition">Chinese
+                Focus</button>
             <button onclick="setMode('pinyin')" id="btn-mode-pinyin"
-                class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 transition">Pinyin Focus</button>
+                class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 transition">Pinyin
+                Focus</button>
             <button onclick="setMode('meaning')" id="btn-mode-meaning"
-                class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 transition">Meaning Focus</button>
+                class="mode-btn px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-600 transition">Meaning
+                Focus</button>
         </div>
 
         <div id="view-flashcard" class="flex-grow flex flex-col relative">
@@ -247,14 +263,18 @@
         </div>
 
         <div id="view-test" class="hidden flex-grow flex flex-col mb-4">
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-4 flex items-center justify-center min-h-[160px]">
-                <div id="test-question" class="text-center w-full"></div>
+            <div
+                class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-4 flex items-center justify-center min-h-[160px]">
+                <div id="test-question" class="text-center"></div>
             </div>
             <div id="test-options" class="grid grid-cols-1 md:grid-cols-2 gap-3 flex-grow content-start"></div>
-            <div id="test-feedback" class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">Select an answer</div>
+            <div id="test-feedback"
+                class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">Select an answer
+            </div>
         </div>
 
-        <div id="view-result" class="hidden flex-grow flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl border border-slate-200 p-8 mb-4 text-center">
+        <div id="view-result"
+            class="hidden flex-grow flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl border border-slate-200 p-8 mb-4 text-center">
             <div class="mb-6"><i class="fa-solid fa-trophy text-6xl text-yellow-400 mb-4 animate-bounce"></i>
                 <h2 class="text-3xl font-bold text-slate-800">Quiz Complete!</h2>
             </div>
@@ -273,7 +293,8 @@
                 </div>
             </div>
             <button onclick="restartQuiz()"
-                class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 transition">Try Again</button>
+                class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 transition">Try
+                Again</button>
         </div>
 
         <div id="control-bar" class="flex items-center justify-center gap-6 pb-2 mt-auto">
@@ -358,39 +379,48 @@
         ghFolderSelect.addEventListener('change', handleGhFolderChange);
         ghFileSelect.addEventListener('change', () => btnGhLoad.disabled = false);
 
-        // --- Double-Click Logic for Remote ---
-        let clickTimer = null;
-        const clickDelay = 300; 
+        // Keyboard support
+        // --- PRESENTATION REMOTE LOGIC (Long Press for Flip) ---
+        let keyStartTime = 0;
+        let isKeyPressed = false;
 
         document.addEventListener('keydown', (e) => {
-            if (!setupScreen.classList.contains('hidden')) return;
-
-            // Instant Actions
-            if (appMode === 'learn') {
-                if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
-                    e.preventDefault();
-                    flipCard();
-                    return;
-                }
+            // Prevent default scrolling for remote keys
+            if (["PageUp", "PageDown", "ArrowUp", "ArrowDown"].includes(e.code)) {
+                e.preventDefault();
             }
 
-            // Navigation Keys
-            const navKeys = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp'];
-            if (navKeys.includes(e.code)) {
-                if (e.code.includes('Page')) e.preventDefault(); 
+            // Only start timer on the first press (ignore OS auto-repeat)
+            if (!isKeyPressed && (e.code === 'PageDown' || e.code === 'PageUp' || e.code === 'ArrowRight' || e.code === 'ArrowLeft')) {
+                keyStartTime = Date.now();
+                isKeyPressed = true;
+            }
 
-                if (clickTimer) {
-                    clearTimeout(clickTimer);
-                    clickTimer = null;
+            // Keep existing Spacebar logic as is
+            if (e.code === 'Space' && appMode === 'learn') {
+                e.preventDefault();
+                flipCard();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (!isKeyPressed) return;
+
+            const duration = Date.now() - keyStartTime;
+            isKeyPressed = false;
+
+            if (setupScreen.classList.contains('hidden')) {
+                // LONG PRESS ( > 1000ms): Flip the card
+                if (duration >= 1000) {
                     if (appMode === 'learn') flipCard();
-                } else {
-                    clickTimer = setTimeout(() => {
-                        if (e.code === 'ArrowRight' || e.code === 'PageDown') nextCard();
-                        else if (e.code === 'ArrowLeft' || e.code === 'PageUp') {
-                            if (appMode === 'learn') prevCard();
-                        }
-                        clickTimer = null;
-                    }, clickDelay);
+                }
+                // SHORT PRESS: Navigate
+                else {
+                    if (e.code === 'PageDown' || e.code === 'ArrowRight') {
+                        nextCard();
+                    } else if (e.code === 'PageUp' || e.code === 'ArrowLeft') {
+                        if (appMode === 'learn') prevCard();
+                    }
                 }
             }
         });
@@ -400,7 +430,10 @@
         let touchEndX = 0;
         const minSwipeDistance = 50;
 
-        appScreen.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+        appScreen.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
         appScreen.addEventListener('touchend', e => {
             touchEndX = e.changedTouches[0].screenX;
             handleSwipe();
@@ -410,8 +443,12 @@
             if (appMode !== 'learn') return;
             const distance = touchEndX - touchStartX;
             if (Math.abs(distance) < minSwipeDistance) return;
-            if (distance < 0) nextCard();
-            else prevCard();
+
+            if (distance < 0) {
+                nextCard();
+            } else {
+                prevCard();
+            }
         }
 
         // --- PROGRESS SAVING ---
@@ -524,6 +561,7 @@
                 if (!response.ok) throw new Error("Download failed");
                 const arrayBuffer = await response.arrayBuffer();
 
+                // FIX: Add 'codepage: 65001' to force UTF-8 parsing
                 const workbook = XLSX.read(arrayBuffer, { type: 'array', codepage: 65001 });
                 parseWorkbook(workbook);
 
@@ -543,6 +581,7 @@
             const reader = new FileReader();
             reader.onload = function (e) {
                 const data = new Uint8Array(e.target.result);
+                // FIX: Add 'codepage: 65001' to force UTF-8 parsing
                 const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
                 parseWorkbook(workbook);
             };
@@ -584,8 +623,11 @@
                 const parsedIndex = parseInt(savedIndex);
                 if (!isNaN(parsedIndex) && parsedIndex < rawCards.length && parsedIndex > 0) {
                     const resume = confirm(`You left off at card ${parsedIndex + 1}. Do you want to resume?`);
-                    if (resume) currentIndex = parsedIndex;
-                    else localStorage.removeItem(currentFileId);
+                    if (resume) {
+                        currentIndex = parsedIndex;
+                    } else {
+                        localStorage.removeItem(currentFileId);
+                    }
                 }
             }
 
@@ -649,55 +691,14 @@
             }
         }
 
-        function setMode(mode) {
-            if (currentMode === mode) return;
-            currentMode = mode;
-            updateModeActiveState();
-            if (appMode === 'learn') renderCard();
-            else restartQuiz();
-        }
-
-        function updateModeActiveState() {
-            [btnChinese, btnPinyin, btnMeaning].forEach(btn => btn.classList.remove('active'));
-            if (currentMode === 'chinese') btnChinese.classList.add('active');
-            if (currentMode === 'pinyin') btnPinyin.classList.add('active');
-            if (currentMode === 'meaning') btnMeaning.classList.add('active');
-        }
-
-        // --- SHUFFLE LOGIC (FIXED) ---
-        function randomizeData() {
-            for (let i = rawCards.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [rawCards[i], rawCards[j]] = [rawCards[j], rawCards[i]];
-            }
-        }
-
-        function shuffleCards() {
-            randomizeData();
-            
-            // Animation
-            const target = appMode === 'learn' ? cardContainer.parentElement : testQuestion.parentElement;
-            target.classList.add('shaking');
-            setTimeout(() => target.classList.remove('shaking'), 400);
-
-            if (appMode === 'learn') {
-                 currentIndex = 0; 
-                 renderCard(); 
-            } else {
-                 restartQuiz();
-            }
-        }
-
-        function updateProgress() {
-            currentCountEl.textContent = currentIndex + 1;
-            totalCountEl.textContent = rawCards.length;
-            progressBar.style.width = `${((currentIndex + 1) / rawCards.length) * 100}%`;
-        }
-
-        // --- FLASHCARD RENDER ---
+        function setMode(mode) { if (currentMode === mode) return; currentMode = mode; updateModeActiveState(); if (appMode === 'learn') renderCard(); else restartQuiz(); }
+        function updateModeActiveState() { [btnChinese, btnPinyin, btnMeaning].forEach(btn => btn.classList.remove('active')); if (currentMode === 'chinese') btnChinese.classList.add('active'); if (currentMode === 'pinyin') btnPinyin.classList.add('active'); if (currentMode === 'meaning') btnMeaning.classList.add('active'); }
+        function shuffleCards() { for (let i = rawCards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[rawCards[i], rawCards[j]] = [rawCards[j], rawCards[i]]; } if (appMode === 'learn') { currentIndex = 0; renderCard(); } else restartQuiz(); const target = appMode === 'learn' ? cardContainer.parentElement : testQuestion.parentElement; target.classList.add('shaking'); setTimeout(() => target.classList.remove('shaking'), 400); }
+        function updateProgress() { currentCountEl.textContent = currentIndex + 1; totalCountEl.textContent = rawCards.length; progressBar.style.width = `${((currentIndex + 1) / rawCards.length) * 100}%`; }
         function renderCard() {
             const card = rawCards[currentIndex];
 
+            // Reset flip animation state
             if (!isFlipped) {
                 const inner = cardContainer.querySelector('.card-inner');
                 inner.style.transition = 'none';
@@ -708,176 +709,77 @@
 
             let front = '', backItems = [];
 
+            // 1. Chinese Front
             if (currentMode === 'chinese') {
                 front = `<h2 class="text-6xl md:text-7xl font-bold text-slate-800">${card.chinese.value}</h2>`;
                 backItems = [card.pinyin, ...card.meanings];
-            } else if (currentMode === 'pinyin') {
+            }
+            // 2. Pinyin Front
+            else if (currentMode === 'pinyin') {
                 front = `<h2 class="text-5xl md:text-6xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
                 backItems = [card.chinese, ...card.meanings];
-            } else {
-                front = `<div class="flex flex-col gap-4 w-full">` +
+            }
+            // 3. Meaning Front (THIS IS THE SECTION TO UPDATE)
+            else {
+                front = `<div class="flex flex-col gap-4">` +
                     card.meanings.map(m =>
-                        `<div class="p-3 bg-slate-50 rounded-xl border border-slate-200 w-full">
-                            <span class="text-xs font-bold text-slate-400 uppercase block mb-1">${m.label}</span>
-                            <span class="text-lg font-bold text-slate-700">${m.value}</span>
-                        </div>`
+                        `<div>
+                        <div class="text-xs text-slate-400 uppercase tracking-widest">${m.label}</div>
+                        <div class="text-5xl md:text-6xl font-bold text-slate-800">${m.value}</div>
+                    </div>`
                     ).join('') + `</div>`;
+
                 backItems = [card.chinese, card.pinyin];
             }
 
             frontContent.innerHTML = front;
+
+            // Back content generation
             backContent.innerHTML = backItems.map(item =>
-                `<div class="bg-slate-50 rounded-xl p-4 w-full border border-slate-100">
-                    <p class="text-xs font-bold text-slate-400 uppercase mb-1">${item.label}</p>
-                    <p class="text-xl font-bold text-slate-800">${item.value}</p>
+                `<div class="flex flex-col border-b border-slate-100 pb-3 last:border-0">
+                    <span class="text-xs text-slate-400 uppercase font-semibold tracking-wider mb-1">${item.label}</span>
+                    <span class="text-7xl text-slate-800 font-bold">${item.value}</span>
                 </div>`
             ).join('');
 
             updateProgress();
             saveProgress();
         }
-
-        // --- QUIZ MODE RENDER ---
         function renderTest() {
-            testFeedback.textContent = "Select an answer";
-            testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest";
-            testOptions.innerHTML = '';
-            isFirstAttempt = true;
-
-            const card = rawCards[currentIndex];
-            let questionHtml = '';
-            let answerKey = '';
-
-            // Setup Question & Answer Key
-            if (currentMode === 'chinese') {
-                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Meaning?</div><h2 class="text-6xl font-bold text-slate-800">${card.chinese.value}</h2>`;
-                answerKey = 'meaningString';
-            } else if (currentMode === 'pinyin') {
-                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><h2 class="text-5xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
-                answerKey = 'chinese';
-            } else { 
-                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><div class="text-2xl font-bold text-slate-800 px-4 line-clamp-4">${card.meaningString}</div>`;
-                answerKey = 'chinese';
-            }
-
-            testQuestion.innerHTML = questionHtml;
-
-            // Generate Options
-            const options = [card];
-            let safety = 0;
-            while (options.length < 4 && options.length < rawCards.length && safety < 100) {
-                const randomCard = rawCards[Math.floor(Math.random() * rawCards.length)];
-                if (!options.includes(randomCard)) options.push(randomCard);
-                safety++;
-            }
-            
-            // Shuffle Options
-            options.sort(() => Math.random() - 0.5);
-
-            // Render Buttons
-            options.forEach(opt => {
-                const isCorrect = (opt === card);
-                const btn = document.createElement('button');
-                btn.className = "option-btn w-full p-4 rounded-xl text-lg font-semibold text-slate-700 bg-white shadow-sm flex flex-col items-center justify-center min-h-[80px]";
-                
-                let btnText = '';
-                if (answerKey === 'chinese') btnText = opt.chinese.value;
-                else btnText = opt.meaningString;
-
-                btn.textContent = btnText;
-                btn.dataset.correct = isCorrect;
-                btn.onclick = () => checkAnswer(btn);
-                
-                testOptions.appendChild(btn);
-            });
-            updateProgress();
+            testFeedback.textContent = "Select an answer"; testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest"; isFirstAttempt = true;
+            const card = rawCards[currentIndex]; let qHtml = '', key = '';
+            if (currentMode === 'chinese') { qHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Meaning?</div><div class="text-6xl font-bold text-slate-800">${card.chinese.value}</div>`; key = 'meaningString'; }
+            else if (currentMode === 'pinyin') { qHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><div class="text-5xl font-bold text-slate-800">${card.pinyin.value}</div>`; key = 'chinese'; }
+            else { qHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><div class="text-3xl font-bold text-slate-800 line-clamp-3">${card.meaningString}</div>`; key = 'chinese'; }
+            testQuestion.innerHTML = qHtml;
+            const opts = [card]; while (opts.length < 4 && opts.length < rawCards.length) { const r = rawCards[Math.floor(Math.random() * rawCards.length)]; if (!opts.includes(r)) opts.push(r); }
+            for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[opts[i], opts[j]] = [opts[j], opts[i]]; }
+            testOptions.innerHTML = opts.map(o => `<button onclick="checkAnswer(this, '${o === card}')" class="option-btn w-full p-4 rounded-xl text-lg font-semibold text-slate-700 bg-white shadow-sm flex flex-col items-center justify-center min-h-[80px]">${key === 'chinese' ? o.chinese.value : o.meaningString}</button>`).join('');
         }
-
-        function checkAnswer(btn) {
+        function checkAnswer(btn, isCorrect) {
             if (btn.disabled) return;
-            
-            const isCorrect = btn.dataset.correct === 'true';
-            const allBtns = Array.from(testOptions.children);
-            
-            // Disable all to prevent multi-click
-            allBtns.forEach(b => b.disabled = true);
-
-            if (isCorrect) {
-                btn.classList.add('correct');
-                testFeedback.textContent = "Correct!";
-                testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-green-500 uppercase tracking-widest animate-pulse";
-                
+            const isRight = isCorrect === 'true';
+            Array.from(testOptions.children).forEach(b => b.disabled = true);
+            if (isRight) {
+                btn.classList.add('correct'); testFeedback.textContent = "Correct!"; testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-green-500 uppercase tracking-widest animate-pulse";
                 if (isFirstAttempt) correctFirstTryCount++;
-
-                setTimeout(() => {
-                    if (currentIndex < rawCards.length - 1) {
-                        currentIndex++;
-                        isFirstAttempt = true;
-                        renderTest();
-                    } else {
-                        endQuiz();
-                    }
-                }, 1000);
+                setTimeout(() => { if (currentIndex < rawCards.length - 1) { currentIndex++; updateProgress(); renderTest(); } else { endQuiz(); } }, 1000);
             } else {
-                btn.classList.add('incorrect');
-                wrongClicks++;
-                isFirstAttempt = false;
-                
-                testFeedback.textContent = "Try Again";
-                testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
-
-                // Highlight the correct answer
-                const correctBtn = allBtns.find(b => b.dataset.correct === 'true');
-                if (correctBtn) correctBtn.classList.add('correct');
-
-                // Re-enable wrong buttons after delay so user can try again
-                setTimeout(() => {
-                    allBtns.forEach(b => {
-                        if (!b.classList.contains('incorrect') && !b.classList.contains('correct')) {
-                            b.disabled = false;
-                        }
-                    });
-                }, 1000);
+                btn.classList.add('incorrect'); wrongClicks++; isFirstAttempt = false; testFeedback.textContent = "Try Again"; testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
+                Array.from(testOptions.children).forEach(b => { if (b.textContent === (currentMode === 'chinese' || currentMode === 'pinyin' ? (currentMode === 'chinese' ? rawCards[currentIndex].meaningString : rawCards[currentIndex].chinese.value) : rawCards[currentIndex].chinese.value)) b.classList.add('correct'); });
+                setTimeout(() => { btn.disabled = true; Array.from(testOptions.children).forEach(b => { if (!b.classList.contains('incorrect')) b.disabled = false; }); }, 1000);
             }
         }
-
         function nextCard() { if (currentIndex < rawCards.length - 1) { currentIndex++; isFlipped = false; renderCard(); } }
         function prevCard() { if (currentIndex > 0) { currentIndex--; isFlipped = false; renderCard(); } }
         function flipCard() { isFlipped = !isFlipped; if (isFlipped) cardContainer.classList.add('flipped'); else cardContainer.classList.remove('flipped'); }
-        
-        function startTimer() { 
-            timeElapsed = 0; 
-            timeVal.textContent = "00:00"; 
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => { 
-                timeElapsed++; 
-                const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); 
-                const s = (timeElapsed % 60).toString().padStart(2, '0'); 
-                timeVal.textContent = `${m}:${s}`; 
-            }, 1000); 
-        }
-        
+        function startTimer() { timeElapsed = 0; timeVal.textContent = "00:00"; timerInterval = setInterval(() => { timeElapsed++; const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); const s = (timeElapsed % 60).toString().padStart(2, '0'); timeVal.textContent = `${m}:${s}`; }, 1000); }
         function stopTimer() { clearInterval(timerInterval); }
-        
-        function restartQuiz() { 
-            currentIndex = 0; 
-            correctFirstTryCount = 0; 
-            wrongClicks = 0; 
-            randomizeData(); // FIX: Call shuffle logic directly, not the UI function
-            startTimer(); 
-            renderTest(); 
-        }
-        
+        function restartQuiz() { currentIndex = 0; correctFirstTryCount = 0; wrongClicks = 0; shuffleCards(); startTimer(); renderTest(); }
         function endQuiz() {
-            stopTimer(); 
-            viewTest.classList.add('hidden'); 
-            viewResult.classList.remove('hidden'); 
-            controlBar.classList.add('hidden');
-            const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); 
-            const s = (timeElapsed % 60).toString().padStart(2, '0');
-            resTime.textContent = `${m}:${s}`; 
-            resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length}`; 
-            resMistakes.textContent = wrongClicks;
+            stopTimer(); viewTest.classList.add('hidden'); viewResult.classList.remove('hidden'); controlBar.classList.add('hidden');
+            const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); const s = (timeElapsed % 60).toString().padStart(2, '0');
+            resTime.textContent = `${m}:${s}`; resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length}`; resMistakes.textContent = wrongClicks;
         }
     </script>
 </body>
