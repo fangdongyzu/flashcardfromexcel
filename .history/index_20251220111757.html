@@ -19,7 +19,7 @@
 
         body {
             /* --- CHANGED: Set Font to BiauKai (標楷體) --- */
-            font-family: "標楷體", DFKai-sb, BiauKai, 'Inter', serif;
+            font-family: 'BiauKai', 'DFKai-SB', 'KaiTi', 'Inter', serif;
             background-color: #f3f4f6;
             -webkit-font-smoothing: antialiased;
             overscroll-behavior-y: none;
@@ -763,7 +763,7 @@
             }
 
             if (card.code) {
-                front += `<div class="absolute bottom-4 right-6 text-xl font-mono text-slate-300 font-bold select-none tracking-widest">${card.code}</div>`;
+                front += `<div class="absolute bottom-4 right-6 text-sm font-mono text-slate-300 font-bold select-none tracking-widest">${card.code}</div>`;
             }
 
             frontContent.innerHTML = front;

@@ -10,16 +10,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        /* --- CHANGED: Font Imports --- */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans+TC:wght@400;700&display=swap');
 
         html {
             touch-action: manipulation;
         }
 
         body {
-            /* --- CHANGED: Set Font to BiauKai (標楷體) --- */
-            font-family: "標楷體", DFKai-sb, BiauKai, 'Inter', serif;
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
             background-color: #f3f4f6;
             -webkit-font-smoothing: antialiased;
             overscroll-behavior-y: none;
@@ -40,14 +38,11 @@
         }
 
         .card-container.flipped .card-inner {
-            transform: rotateY(180deg);
+            transform: rotateX(180deg);
         }
 
         .card-face {
-            /* Ensure both faces are absolute to overlap perfectly */
             position: absolute;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
             -webkit-backface-visibility: hidden;
@@ -63,15 +58,8 @@
             border: 2px solid #e5e7eb;
         }
 
-        /* Front face default (0deg) */
-        .card-front {
-            z-index: 2;
-            transform: rotateY(0deg);
-        }
-
-        /* Back face rotated 180deg */
         .card-back {
-            transform: rotateY(180deg);
+            transform: rotateX(180deg);
         }
 
         /* --- Scale Back Content --- */
@@ -244,12 +232,12 @@
 
         <div id="view-flashcard" class="flex-grow flex flex-col relative">
             <div class="flex-grow perspective-container w-full relative mb-6">
-                <div id="card-container" class="card-container cursor-pointer w-full h-full select-none" onclick="flipCard()">
+                <div id="card-container" class="card-container cursor-pointer w-full h-full" onclick="flipCard()">
                     <div class="card-inner">
-                        <div class="card-face card-front">
+                        <div class="card-face card-front relative">
                             <div id="card-front-content" class="text-center w-full"></div>
                             <p class="absolute bottom-6 text-slate-300 text-xs uppercase font-bold">Tap to Flip</p>
-                        </div>
+                            </div>
                         <div class="card-face card-back">
                             <div id="card-back-content" class="w-full max-w-md space-y-4 text-center"></div>
                         </div>
@@ -535,6 +523,7 @@
                 const response = await fetch(fileObj.download_url);
                 if (!response.ok) throw new Error("Download failed");
 
+                // CSV Special Handling: Replace Chinese comma with standard comma
                 if (fileObj.name.toLowerCase().endsWith('.csv')) {
                     const text = await response.text();
                     const fixedText = text.replaceAll('，', ',');
@@ -560,6 +549,7 @@
 
             const reader = new FileReader();
             
+            // CSV Special Handling
             if (file.name.toLowerCase().endsWith('.csv')) {
                 reader.onload = function(e) {
                     const text = e.target.result;
@@ -567,7 +557,7 @@
                     const workbook = XLSX.read(fixedText, { type: 'string' });
                     parseWorkbook(workbook);
                 }
-                reader.readAsText(file); 
+                reader.readAsText(file); // Read as text to replace characters
             } else {
                 reader.onload = function (e) {
                     const data = new Uint8Array(e.target.result);
@@ -586,11 +576,13 @@
             if (rows.length < 2) { alert("File is empty or invalid."); btnGhLoad.textContent = "Load Deck"; btnGhLoad.disabled = false; return; }
             const headers = rows[0];
 
+            // Detect CODE column
             const codeIndex = headers.findIndex(h => h && h.toString().toUpperCase() === 'CODE');
 
             rawCards = rows.slice(1).filter(row => row[0]).map(row => {
                 const meanings = row.slice(2).map((val, idx) => {
                     const realIdx = idx + 2;
+                    // Skip if this is the CODE column
                     if (realIdx === codeIndex) return null;
                     
                     return {
@@ -762,12 +754,14 @@
                 backItems = [card.chinese, card.pinyin];
             }
 
+            // ADD CODE IF EXISTS
             if (card.code) {
-                front += `<div class="absolute bottom-4 right-6 text-xl font-mono text-slate-300 font-bold select-none tracking-widest">${card.code}</div>`;
+                front += `<div class="absolute bottom-4 right-6 text-sm font-mono text-slate-300 font-bold select-none tracking-widest">${card.code}</div>`;
             }
 
             frontContent.innerHTML = front;
             
+            // Increase Back Font Size (text-xl -> text-4xl)
             backContent.innerHTML = backItems.map(item =>
                 `<div class="bg-slate-50 rounded-xl p-4 w-full border border-slate-100">
                     <p class="text-sm font-bold text-slate-400 uppercase mb-2">${item.label}</p>
@@ -798,6 +792,7 @@
                 questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><h2 class="text-5xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
                 answerKey = 'chinese';
             } else { 
+                // Meaning Focus: Increased Font Size (text-5xl)
                 questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><div class="text-5xl font-bold text-slate-800 px-4 leading-tight">${card.meaningString}</div>`;
                 answerKey = 'chinese';
             }
@@ -813,8 +808,10 @@
                 safety++;
             }
             
+            // Shuffle Options
             options.sort(() => Math.random() - 0.5);
 
+            // Render Buttons (Increased Font Size: text-3xl)
             options.forEach(opt => {
                 const isCorrect = (opt === card);
                 const btn = document.createElement('button');
@@ -839,6 +836,7 @@
             const isCorrect = btn.dataset.correct === 'true';
             const allBtns = Array.from(testOptions.children);
             
+            // Disable all to prevent multi-click
             allBtns.forEach(b => b.disabled = true);
 
             if (isCorrect) {
@@ -865,9 +863,11 @@
                 testFeedback.textContent = "Try Again";
                 testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
 
+                // Highlight the correct answer
                 const correctBtn = allBtns.find(b => b.dataset.correct === 'true');
                 if (correctBtn) correctBtn.classList.add('correct');
 
+                // Re-enable wrong buttons after delay so user can try again
                 setTimeout(() => {
                     allBtns.forEach(b => {
                         if (!b.classList.contains('incorrect') && !b.classList.contains('correct')) {
