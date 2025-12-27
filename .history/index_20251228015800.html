@@ -288,19 +288,16 @@
             </div>
         </div>
 
-        <div id="view-test" class="hidden flex-grow flex flex-col mb-2 overflow-hidden h-full">
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 mb-3 flex items-center justify-center min-h-[100px] flex-shrink-0">
+        <div id="view-test" class="hidden flex-grow flex flex-col mb-4">
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 mb-4 flex items-center justify-center min-h-[160px]">
                 <div id="test-question" class="text-center w-full"></div>
             </div>
+            <div id="test-options" class="grid grid-cols-1 md:grid-cols-2 gap-3 flex-grow content-start"></div>
+            <div id="test-feedback" class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">Select an answer</div>
             
-            <div id="test-options" class="grid grid-cols-1 md:grid-cols-2 gap-2 flex-grow overflow-y-auto content-start px-1"></div>
-            
-            <div class="flex-shrink-0 mt-2">
-                <div id="test-feedback" class="h-6 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">Select an answer</div>
-                <button id="btn-quiz-next" onclick="handleNextQuizQuestion()" class="invisible w-full py-3 mt-2 rounded-xl bg-slate-800 text-white font-bold shadow-lg hover:bg-slate-700 transition">
-                    Next Question
-                </button>
-            </div>
+            <button id="btn-quiz-next" onclick="handleNextQuizQuestion()" class="invisible w-full py-4 mt-4 rounded-xl bg-slate-800 text-white font-bold shadow-lg hover:bg-slate-700 transition">
+                Next Question
+            </button>
         </div>
 
         <div id="view-result" class="hidden flex-grow flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl border border-slate-200 p-8 mb-4 text-center">
@@ -990,15 +987,14 @@
             const selectedMeaningString = getSelectedMeaningString(card);
             const displayMeaning = selectedMeaningString || "(No columns selected)";
 
-            // RESPONSIVE TEXT SIZE for Questions
             if (currentMode === 'chinese') {
-                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Select the correct definition</div><h2 class="text-3xl md:text-6xl font-bold text-slate-800">${card.chinese.value}</h2>`;
+                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Select the correct definition</div><h2 class="text-6xl font-bold text-slate-800">${card.chinese.value}</h2>`;
                 answerKey = 'selectedMeaning';
             } else if (currentMode === 'pinyin') {
-                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><h2 class="text-3xl md:text-5xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
+                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><h2 class="text-5xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
                 answerKey = 'chinese';
             } else { 
-                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><div class="text-2xl md:text-5xl font-bold text-slate-800 px-4 leading-tight">${displayMeaning}</div>`;
+                questionHtml = `<div class="text-xs text-slate-400 uppercase mb-2">Character?</div><div class="text-5xl font-bold text-slate-800 px-4 leading-tight">${displayMeaning}</div>`;
                 answerKey = 'chinese';
             }
 
@@ -1016,8 +1012,7 @@
             options.forEach(opt => {
                 const isCorrect = (opt === card);
                 const btn = document.createElement('button');
-                // SMALLER BUTTONS: Reduced padding (p-3), font size (text-xl), min-height (60px)
-                btn.className = "option-btn w-full p-3 rounded-xl text-xl font-bold text-slate-700 bg-white shadow-sm flex flex-col items-center justify-center min-h-[60px]";
+                btn.className = "option-btn w-full p-6 rounded-xl text-3xl font-bold text-slate-700 bg-white shadow-sm flex flex-col items-center justify-center min-h-[100px]";
                 
                 let btnText = '';
                 if (answerKey === 'chinese') {
@@ -1062,7 +1057,7 @@
                 if (correctBtn) correctBtn.classList.add('correct');
             }
 
-            // SHOW NEXT BUTTON: Remove invisible, so it appears in the reserved spot
+            // SHOW NEXT BUTTON: Remove invisible, so it appears
             btnQuizNext.classList.remove('invisible');
         }
 

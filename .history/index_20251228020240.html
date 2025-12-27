@@ -371,7 +371,6 @@
         let isVocabOpen = false;
         let isTimerPaused = false;
         
-        // New Variables for Column Selection
         let availableMeaningHeaders = []; 
         let selectedMeaningIndices = []; 
 
@@ -438,7 +437,6 @@
         document.addEventListener('keydown', (e) => {
             if (!setupScreen.classList.contains('hidden') || isVocabOpen) return;
 
-            // Instant Actions
             if (appMode === 'learn') {
                 if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
                     e.preventDefault();
@@ -447,7 +445,6 @@
                 }
             }
 
-            // Navigation Keys
             const navKeys = ['ArrowRight', 'ArrowLeft', 'PageDown', 'PageUp'];
             if (navKeys.includes(e.code)) {
                 if (e.code.includes('Page')) e.preventDefault(); 
@@ -765,7 +762,6 @@
             if (isVocabOpen) {
                 renderVocabularyList();
                 viewVocabulary.classList.remove('hidden');
-                // Pause timer if in quiz mode
                 isTimerPaused = true; 
             } else {
                 viewVocabulary.classList.add('hidden');
@@ -811,7 +807,6 @@
                 displayHeaders.forEach(h => {
                     const td = document.createElement('td');
                     td.className = "p-3 border-b border-slate-100 text-slate-600";
-                    // Find meaning matching this column index
                     const meaning = card.meanings.find(m => m.colIndex === h.index);
                     td.textContent = meaning ? meaning.value : "-";
                     tr.appendChild(td);
@@ -836,9 +831,9 @@
         function setAppMode(mode) {
             appMode = mode;
             viewResult.classList.add('hidden');
-            // FIX: Toggle Control Bar Visibility
+            // Toggle Control Bar Visibility
             if (mode === 'learn') {
-                controlBar.classList.remove('hidden'); // Show in Learn
+                controlBar.classList.remove('hidden'); 
                 
                 tabLearn.classList.replace('text-slate-500', 'bg-slate-800');
                 tabLearn.classList.replace('hover:text-slate-800', 'text-white');
@@ -852,7 +847,7 @@
                 btnPrev.style.visibility = 'visible';
                 stopTimer(); renderCard();
             } else {
-                controlBar.classList.add('hidden'); // Hide in Quiz (NEW FIX)
+                controlBar.classList.add('hidden'); 
                 
                 tabTest.className = "px-4 py-1.5 rounded-full text-xs font-bold bg-blue-600 text-white transition-all shadow-md";
                 tabLearn.className = "px-4 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:text-slate-800 transition-all";
@@ -1016,8 +1011,7 @@
             options.forEach(opt => {
                 const isCorrect = (opt === card);
                 const btn = document.createElement('button');
-                // SMALLER BUTTONS: Reduced padding (p-3), font size (text-xl), min-height (60px)
-                btn.className = "option-btn w-full p-3 rounded-xl text-xl font-bold text-slate-700 bg-white shadow-sm flex flex-col items-center justify-center min-h-[60px]";
+                btn.className = "option-btn w-full p-6 rounded-xl text-3xl font-bold text-slate-700 bg-white shadow-sm flex flex-col items-center justify-center min-h-[100px]";
                 
                 let btnText = '';
                 if (answerKey === 'chinese') {
