@@ -295,8 +295,8 @@
             <div id="test-options" class="grid grid-cols-1 md:grid-cols-2 gap-3 flex-grow content-start"></div>
             <div id="test-feedback" class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">Select an answer</div>
             
-            <button id="btn-quiz-next" onclick="handleNextQuizQuestion()" class="hidden w-full py-4 mt-4 rounded-xl bg-slate-800 text-white font-bold shadow-lg hover:bg-slate-700 transition">
-                Next Question
+            <button id="btn-quiz-next" onclick="handleNextQuizQuestion()" class="hidden w-full py-4 mt-4 rounded-xl bg-slate-800 text-white font-bold shadow-lg hover:bg-slate-700 transition animate-bounce">
+                Next Question <i class="fa-solid fa-arrow-right ml-2"></i>
             </button>
         </div>
 
@@ -311,7 +311,7 @@
                 </div>
                 <div class="bg-green-50 p-3 rounded-xl">
                     <p class="text-[10px] uppercase font-bold text-green-500">Accuracy</p>
-                    <p id="res-accuracy" class="text-xl font-bold text-green-800">0/0 (0%)</p>
+                    <p id="res-accuracy" class="text-xl font-bold text-green-800">0/0</p>
                 </div>
             </div>
             <button onclick="restartQuiz()"
@@ -324,7 +324,9 @@
                     class="fa-solid fa-arrow-left text-xl"></i></button>
             <button id="btn-flip" onclick="flipCard()"
                 class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">Flip</button>
-        
+            <button id="btn-next" onclick="nextCard()"
+                class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 transition flex items-center justify-center border border-slate-100"><i
+                    class="fa-solid fa-arrow-right text-xl"></i></button>
         </div>
         
         <div id="view-vocabulary" class="hidden absolute inset-0 bg-white z-50 rounded-2xl flex flex-col p-4 animate-fade-in">
@@ -360,7 +362,7 @@
         let currentMode = 'chinese';
         let appMode = 'learn';
         let timerInterval, timeElapsed = 0;
-        let correctFirstTryCount = 0, isFirstAttempt = true; 
+        let correctFirstTryCount = 0, isFirstAttempt = true; // Removed wrongClicks
         let currentGitHubFiles = [];
         let currentFileId = null;
         let isVocabOpen = false;
@@ -414,7 +416,7 @@
         const btnQuizNext = document.getElementById('btn-quiz-next'); 
         const resTime = document.getElementById('res-time');
         const resAccuracy = document.getElementById('res-accuracy');
-        
+        // Removed resMistakes
         const vocabTableHead = document.getElementById('vocab-table-head');
         const vocabTableBody = document.getElementById('vocab-table-body');
 
@@ -940,7 +942,7 @@
                         selectedMeanings.map(m =>
                             `<div class="p-3 bg-slate-50 rounded-xl border border-slate-200 w-full">
                                 <span class="text-xs font-bold text-slate-400 uppercase block mb-1">${m.label}</span>
-                                <span class="text-lg font-bold text-slate-900">${m.value}</span>
+                                <span class="text-lg font-bold text-slate-700">${m.value}</span>
                             </div>`
                         ).join('') + `</div>`;
                 }
@@ -1040,6 +1042,7 @@
                 if (isFirstAttempt) correctFirstTryCount++;
             } else {
                 btn.classList.add('incorrect');
+                // REMOVED wrongClicks tracking
                 
                 testFeedback.textContent = "Incorrect";
                 testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
@@ -1085,14 +1088,8 @@
         function restartQuiz() { 
             currentIndex = 0; 
             correctFirstTryCount = 0; 
-            isFirstAttempt = true;
+            // Removed wrongClicks reset
             randomizeData();
-            
-            // UI Reset
-            viewResult.classList.add('hidden');
-            viewTest.classList.remove('hidden');
-            timerDisplay.classList.remove('hidden');
-            
             startTimer(); 
             renderTest(); 
         }
@@ -1102,14 +1099,11 @@
             viewTest.classList.add('hidden'); 
             viewResult.classList.remove('hidden'); 
             controlBar.classList.add('hidden');
-            
             const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); 
             const s = (timeElapsed % 60).toString().padStart(2, '0');
             resTime.textContent = `${m}:${s}`; 
-            
-            // Calculate Percentage
-            const percentage = rawCards.length > 0 ? Math.round((correctFirstTryCount / rawCards.length) * 100) : 0;
-            resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length} (${percentage}%)`;
+            resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length}`; 
+            // Removed resMistakes assignment
         }
     </script>
 </body>

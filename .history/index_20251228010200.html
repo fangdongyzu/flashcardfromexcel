@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        /* Font Support: Inter/Noto Sans for Latin/Vietnamese, BiauKai for Chinese */
+        /* --- CHANGED: Added Noto Sans for better Vietnamese support --- */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Noto+Sans:wght@400;700&display=swap');
 
         html {
@@ -18,7 +18,10 @@
         }
 
         body {
-            /* Prioritize Vietnamese/Latin fonts first, then Chinese fonts */
+            /* --- CHANGED: Updated Font Stack --- 
+               1. Inter/Noto Sans for Latin & Vietnamese
+               2. BiauKai/DFKai-SB for Chinese characters
+            */
             font-family: 'Inter', 'Noto Sans', 'BiauKai', 'DFKai-SB', 'KaiTi', sans-serif;
             background-color: #f3f4f6;
             -webkit-font-smoothing: antialiased;
@@ -294,24 +297,24 @@
             </div>
             <div id="test-options" class="grid grid-cols-1 md:grid-cols-2 gap-3 flex-grow content-start"></div>
             <div id="test-feedback" class="h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest">Select an answer</div>
-            
-            <button id="btn-quiz-next" onclick="handleNextQuizQuestion()" class="hidden w-full py-4 mt-4 rounded-xl bg-slate-800 text-white font-bold shadow-lg hover:bg-slate-700 transition">
-                Next Question
-            </button>
         </div>
 
         <div id="view-result" class="hidden flex-grow flex flex-col items-center justify-center bg-white rounded-2xl shadow-xl border border-slate-200 p-8 mb-4 text-center">
             <div class="mb-6"><i class="fa-solid fa-trophy text-6xl text-yellow-400 mb-4 animate-bounce"></i>
                 <h2 class="text-3xl font-bold text-slate-800">Quiz Complete!</h2>
             </div>
-            <div class="grid grid-cols-2 gap-4 w-full mb-8 text-center">
+            <div class="grid grid-cols-3 gap-4 w-full mb-8 text-center">
                 <div class="bg-blue-50 p-3 rounded-xl">
                     <p class="text-[10px] uppercase font-bold text-blue-400">Time</p>
                     <p id="res-time" class="text-xl font-bold text-blue-800">00:00</p>
                 </div>
                 <div class="bg-green-50 p-3 rounded-xl">
                     <p class="text-[10px] uppercase font-bold text-green-500">Accuracy</p>
-                    <p id="res-accuracy" class="text-xl font-bold text-green-800">0/0 (0%)</p>
+                    <p id="res-accuracy" class="text-xl font-bold text-green-800">0/0</p>
+                </div>
+                <div class="bg-red-50 p-3 rounded-xl">
+                    <p class="text-[10px] uppercase font-bold text-red-400">Mistakes</p>
+                    <p id="res-mistakes" class="text-xl font-bold text-red-800">0</p>
                 </div>
             </div>
             <button onclick="restartQuiz()"
@@ -324,7 +327,9 @@
                     class="fa-solid fa-arrow-left text-xl"></i></button>
             <button id="btn-flip" onclick="flipCard()"
                 class="px-8 py-3 rounded-full bg-slate-800 text-white font-semibold shadow-lg hover:bg-slate-700 hover:shadow-xl transition active:scale-95">Flip</button>
-        
+            <button id="btn-next" onclick="nextCard()"
+                class="w-14 h-14 rounded-full bg-white shadow-lg text-slate-400 hover:text-blue-600 transition flex items-center justify-center border border-slate-100"><i
+                    class="fa-solid fa-arrow-right text-xl"></i></button>
         </div>
         
         <div id="view-vocabulary" class="hidden absolute inset-0 bg-white z-50 rounded-2xl flex flex-col p-4 animate-fade-in">
@@ -334,11 +339,13 @@
              </div>
              <div class="flex-grow overflow-y-auto">
                  <table class="w-full text-left border-collapse vocab-table">
-                     <thead class="text-lg text-slate-500 uppercase bg-slate-50">
+                     <thead class="text-xs text-slate-400 uppercase bg-slate-50">
                          <tr id="vocab-table-head">
+                             <th class="p-3 border-b border-slate-200">Chinese</th>
+                             <th class="p-3 border-b border-slate-200">Pinyin</th>
                              </tr>
                      </thead>
-                     <tbody id="vocab-table-body" class="text-xl text-slate-700 divide-y divide-slate-100">
+                     <tbody id="vocab-table-body" class="text-sm text-slate-700 divide-y divide-slate-100">
                          </tbody>
                  </table>
              </div>
@@ -360,7 +367,7 @@
         let currentMode = 'chinese';
         let appMode = 'learn';
         let timerInterval, timeElapsed = 0;
-        let correctFirstTryCount = 0, isFirstAttempt = true; 
+        let correctFirstTryCount = 0, wrongClicks = 0, isFirstAttempt = true;
         let currentGitHubFiles = [];
         let currentFileId = null;
         let isVocabOpen = false;
@@ -411,10 +418,9 @@
         const testQuestion = document.getElementById('test-question');
         const testOptions = document.getElementById('test-options');
         const testFeedback = document.getElementById('test-feedback');
-        const btnQuizNext = document.getElementById('btn-quiz-next'); 
         const resTime = document.getElementById('res-time');
         const resAccuracy = document.getElementById('res-accuracy');
-        
+        const resMistakes = document.getElementById('res-mistakes');
         const vocabTableHead = document.getElementById('vocab-table-head');
         const vocabTableBody = document.getElementById('vocab-table-body');
 
@@ -775,10 +781,9 @@
                 <th class="p-3 border-b border-slate-200 w-1/4">Pinyin</th>
             `;
             
-            // Only add headers for SELECTED columns
-            const displayHeaders = availableMeaningHeaders.filter(h => selectedMeaningIndices.includes(h.index));
-            
-            displayHeaders.forEach(h => {
+            // Add headers for ALL meanings (not just selected, so user sees full vocab)
+            // Or typically user wants to see what they are learning. Let's show all available headers.
+            availableMeaningHeaders.forEach(h => {
                 const th = document.createElement('th');
                 th.className = "p-3 border-b border-slate-200";
                 th.textContent = h.label;
@@ -802,8 +807,8 @@
                 tdPin.textContent = card.pinyin.value;
                 tr.appendChild(tdPin);
 
-                // Meanings (Only Selected)
-                displayHeaders.forEach(h => {
+                // Meanings
+                availableMeaningHeaders.forEach(h => {
                     const td = document.createElement('td');
                     td.className = "p-3 border-b border-slate-100 text-slate-600";
                     // Find meaning matching this column index
@@ -940,7 +945,7 @@
                         selectedMeanings.map(m =>
                             `<div class="p-3 bg-slate-50 rounded-xl border border-slate-200 w-full">
                                 <span class="text-xs font-bold text-slate-400 uppercase block mb-1">${m.label}</span>
-                                <span class="text-lg font-bold text-slate-900">${m.value}</span>
+                                <span class="text-lg font-bold text-slate-700">${m.value}</span>
                             </div>`
                         ).join('') + `</div>`;
                 }
@@ -970,7 +975,6 @@
             testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-slate-400 uppercase tracking-widest";
             testOptions.innerHTML = '';
             isFirstAttempt = true;
-            btnQuizNext.classList.add('hidden'); // Hide Next Button
 
             const card = rawCards[currentIndex];
             let questionHtml = '';
@@ -1023,44 +1027,44 @@
             updateProgress();
         }
 
-        // --- CHECK ANSWER & MANUAL NEXT ---
+        // --- FIXED CHECK ANSWER LOGIC ---
         function checkAnswer(btn) {
             if (btn.disabled) return;
             
             const isCorrect = btn.dataset.correct === 'true';
             const allBtns = Array.from(testOptions.children);
             
-            // Disable all to prevent changes
+            // Disable all to prevent multi-click
             allBtns.forEach(b => b.disabled = true);
 
             if (isCorrect) {
                 btn.classList.add('correct');
                 testFeedback.textContent = "Correct!";
                 testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-green-500 uppercase tracking-widest animate-pulse";
+                
                 if (isFirstAttempt) correctFirstTryCount++;
             } else {
                 btn.classList.add('incorrect');
+                wrongClicks++;
                 
                 testFeedback.textContent = "Incorrect";
                 testFeedback.className = "h-8 text-center text-sm font-bold mt-2 text-red-500 uppercase tracking-widest";
 
-                // Highlight correct answer
+                // Highlight the correct answer
                 const correctBtn = allBtns.find(b => b.dataset.correct === 'true');
                 if (correctBtn) correctBtn.classList.add('correct');
             }
 
-            // SHOW NEXT BUTTON (No auto advance)
-            btnQuizNext.classList.remove('hidden');
-        }
-
-        function handleNextQuizQuestion() {
-            if (currentIndex < rawCards.length - 1) {
-                currentIndex++;
-                isFirstAttempt = true;
-                renderTest();
-            } else {
-                endQuiz();
-            }
+            // Move to next question automatically after 1.5s regardless of right/wrong
+            setTimeout(() => {
+                if (currentIndex < rawCards.length - 1) {
+                    currentIndex++;
+                    isFirstAttempt = true;
+                    renderTest();
+                } else {
+                    endQuiz();
+                }
+            }, 1500);
         }
 
         function nextCard() { if (currentIndex < rawCards.length - 1) { currentIndex++; isFlipped = false; renderCard(); } }
@@ -1085,14 +1089,8 @@
         function restartQuiz() { 
             currentIndex = 0; 
             correctFirstTryCount = 0; 
-            isFirstAttempt = true;
+            wrongClicks = 0; 
             randomizeData();
-            
-            // UI Reset
-            viewResult.classList.add('hidden');
-            viewTest.classList.remove('hidden');
-            timerDisplay.classList.remove('hidden');
-            
             startTimer(); 
             renderTest(); 
         }
@@ -1102,14 +1100,11 @@
             viewTest.classList.add('hidden'); 
             viewResult.classList.remove('hidden'); 
             controlBar.classList.add('hidden');
-            
             const m = Math.floor(timeElapsed / 60).toString().padStart(2, '0'); 
             const s = (timeElapsed % 60).toString().padStart(2, '0');
             resTime.textContent = `${m}:${s}`; 
-            
-            // Calculate Percentage
-            const percentage = rawCards.length > 0 ? Math.round((correctFirstTryCount / rawCards.length) * 100) : 0;
-            resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length} (${percentage}%)`;
+            resAccuracy.textContent = `${correctFirstTryCount}/${rawCards.length}`; 
+            resMistakes.textContent = wrongClicks;
         }
     </script>
 </body>
