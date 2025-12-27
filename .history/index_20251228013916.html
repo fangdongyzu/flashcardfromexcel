@@ -933,19 +933,19 @@
                 front = `<h2 class="text-5xl md:text-6xl font-bold text-slate-800">${card.pinyin.value}</h2>`;
                 backItems = [card.chinese, ...selectedMeanings];
             } else {
-    if (selectedMeanings.length === 0) {
-        front = `<div class="text-slate-400 italic">No columns selected</div>`;
-    } else {
-        front = `<div class="flex flex-col gap-6 w-full">` + // Increased gap from 4 to 6
-            selectedMeanings.map(m =>
-                `<div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-200 w-full"> 
-                    <span class="text-sm font-bold text-slate-400 uppercase block mb-2">${m.label}</span>
-                    <span class="text-3xl font-bold text-slate-800">${m.value}</span>
-                </div>`
-            ).join('') + `</div>`;
-    }
-    backItems = [card.chinese, card.pinyin];
-}
+                if (selectedMeanings.length === 0) {
+                    front = `<div class="text-slate-400 italic">No columns selected</div>`;
+                } else {
+                    front = `<div class="flex flex-col gap-4 w-full">` +
+                        selectedMeanings.map(m =>
+                            `<div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 w-full">
+                                <span class="text-xs font-bold text-slate-400 uppercase block mb-1">${m.label}</span>
+                                <span class="text-lg font-bold text-slate-900">${m.value}</span>
+                            </div>`
+                        ).join('') + `</div>`;
+                }
+                backItems = [card.chinese, card.pinyin];
+            }
 
             if (card.code) {
                 front += `<div class="absolute bottom-4 right-6 text-xl font-mono text-slate-300 font-bold select-none tracking-widest">${card.code}</div>`;
