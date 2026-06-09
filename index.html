@@ -624,7 +624,7 @@
             if (file.name.toLowerCase().endsWith('.csv')) {
                 reader.onload = function(e) {
                     const text = e.target.result;
-                    const fixedText = text.replaceAll('，', ',');
+                    const fixedText = text.replaceAll(',', ',');
                     const workbook = XLSX.read(fixedText, { type: 'string' });
                     parseWorkbook(workbook);
                 }
